@@ -1512,9 +1512,12 @@ import '../styles/global.css';
                 }
             }
             
+            // Polling interval for simulation state updates (in milliseconds)
+            const SIMULATION_POLL_INTERVAL_MS = 500;
+            
             function startSimulationPolling() {
                 if (simulationPollingInterval) return;
-                simulationPollingInterval = setInterval(loadSimulationState, 500); // Poll every 500ms
+                simulationPollingInterval = setInterval(loadSimulationState, SIMULATION_POLL_INTERVAL_MS);
             }
             
             function stopSimulationPolling() {
@@ -1522,6 +1525,13 @@ import '../styles/global.css';
                     clearInterval(simulationPollingInterval);
                     simulationPollingInterval = null;
                 }
+            }
+            
+            // Helper function to sanitize HTML special characters
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
             }
             
             function updateSimulationUI() {
@@ -1575,15 +1585,19 @@ import '../styles/global.css';
                         stateText = robot.state.includes('picking') ? 'Picking Up' : 'Putting Down';
                     }
                     
+                    // Sanitize plant ID to prevent XSS
+                    const sanitizedPlantId = robot.holding_plant ? escapeHtml(robot.holding_plant) : '';
+                    const truncatedPlantId = sanitizedPlantId.length > 12 ? sanitizedPlantId.substring(0, 12) + '...' : sanitizedPlantId;
+                    
                     robotEl.className = `p-2 rounded border ${stateColor}`;
                     robotEl.innerHTML = `
                         <div class="flex items-center justify-between mb-1">
                             <span class="text-xs font-bold text-gray-700">Robot ${robot.id + 1}</span>
-                            <span class="text-xs px-1.5 py-0.5 rounded ${stateColor}">${stateText}</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded ${stateColor}">${escapeHtml(stateText)}</span>
                         </div>
                         <div class="text-xs text-gray-600">
                             <div>Row: ${robot.row + 1} | Col: ${robot.col.toFixed(1)}</div>
-                            ${robot.holding_plant ? `<div class="text-blue-600 truncate" title="${robot.holding_plant}">Holding: ${robot.holding_plant.substring(0, 12)}...</div>` : ''}
+                            ${robot.holding_plant ? `<div class="text-blue-600 truncate" title="${sanitizedPlantId}">Holding: ${truncatedPlantId}</div>` : ''}
                         </div>
                     `;
                     container.appendChild(robotEl);
