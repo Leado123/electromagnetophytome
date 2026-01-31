@@ -1,0 +1,1346 @@
+---
+import '../styles/global.css';
+---
+
+<html lang="en" class="h-full">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Sequencer</title>
+        <style>
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            /* No transitions - instant changes */
+        </style>
+    </head>
+    <body class="bg-gray-50 h-full overflow-hidden flex flex-col">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-300 px-4 py-2 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <h1 class="text-lg font-semibold text-gray-900">Sequencer</h1>
+                <p class="text-xs text-gray-600">Drag plants and effects into the grid tiles</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Left Sidebar (Plants & Effects) -->
+                <aside id="left-pane" class="flex flex-col bg-white border-r border-gray-300" style="width: 320px; min-width: 0;">
+                    <div id="left-pane-header" class="flex items-center justify-between px-4 py-2 bg-gray-100 border-b border-gray-300">
+                        <div class="flex items-center gap-2">
+                            <button id="toggle-left-pane-btn" class="p-1 hover:bg-gray-200 rounded" title="Collapse/Expand">
+                                <svg id="toggle-left-pane-icon" class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </button>
+                            <h2 id="left-pane-title" class="text-sm font-semibold text-gray-900">Resources</h2>
+                        </div>
+                    </div>
+                    <div id="left-pane-content" class="flex-1 overflow-hidden flex flex-col">
+                        <!-- Plants Section -->
+                        <div class="border-b border-gray-200">
+                            <button id="toggle-plants-section-btn" class="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50">
+                                <div class="flex items-center gap-2">
+                                    <svg id="plants-section-icon" class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                    <h3 class="text-sm font-semibold text-gray-900">Plants</h3>
+                                    <span id="plant-count" class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">0</span>
+                                </div>
+                            </button>
+                            <div id="plants-section-content" class="overflow-hidden transition-all duration-300">
+                                <div class="px-4 pb-3">
+                                    <button 
+                                        id="create-plant-btn" 
+                                        class="w-full px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span>Create New Plant</span>
+                                    </button>
+                                </div>
+                                <div id="plants-list" class="px-4 pb-3 max-h-[400px] overflow-y-auto space-y-2" 
+                                     data-drop-zone="plants-list">
+                                    <!-- Plants will be loaded here -->
+                                    <div class="text-center text-gray-400 py-6">
+                                        <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <p class="text-xs">No plants yet</p>
+                                        <p class="text-xs mt-1 opacity-75">Click button above</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Effects Section -->
+                        <div class="flex-1 flex flex-col overflow-hidden">
+                            <button id="toggle-effects-section-btn" class="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50">
+                                <div class="flex items-center gap-2">
+                                    <svg id="effects-section-icon" class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                    <h3 class="text-sm font-semibold text-gray-900">Effects</h3>
+                                </div>
+                            </button>
+                            <div id="effects-section-content" class="flex-1 overflow-hidden transition-all duration-300">
+                                <div id="effects-list" class="px-4 py-3 overflow-y-auto space-y-2">
+                                    <div class="p-3 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded cursor-move hover:from-purple-100 hover:to-pink-100 hover:border-purple-300 transition-all duration-200" draggable="true" data-effect="AC">
+                                        <div class="font-bold text-purple-900 text-sm text-center">AC</div>
+                                        <div class="text-xs text-purple-600 text-center mt-1">Alternating Current</div>
+                                    </div>
+                                    <div class="p-3 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded cursor-move hover:from-purple-100 hover:to-pink-100 hover:border-purple-300 transition-all duration-200" draggable="true" data-effect="DC">
+                                        <div class="font-bold text-purple-900 text-sm text-center">DC</div>
+                                        <div class="text-xs text-purple-600 text-center mt-1">Direct Current</div>
+                                    </div>
+                                    <div class="p-3 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded cursor-move hover:from-purple-100 hover:to-pink-100 hover:border-purple-300 transition-all duration-200" draggable="true" data-effect="AMF">
+                                        <div class="font-bold text-purple-900 text-sm text-center">AMF</div>
+                                        <div class="text-xs text-purple-600 text-center mt-1">Alternating Magnetic Field</div>
+                                    </div>
+                                    <div class="p-3 bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded cursor-move hover:from-purple-100 hover:to-pink-100 hover:border-purple-300 transition-all duration-200" draggable="true" data-effect="CMF">
+                                        <div class="font-bold text-purple-900 text-sm text-center">CMF</div>
+                                        <div class="text-xs text-purple-600 text-center mt-1">Constant Magnetic Field</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Effect Properties Panel -->
+                                <div id="effect-properties-panel" class="px-4 pb-3 hidden">
+                                    <div class="bg-white rounded-lg border border-gray-200 flex flex-col overflow-hidden" style="max-height: 300px;">
+                                        <div class="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                                            <h3 class="text-sm font-semibold text-gray-900">Effect Properties</h3>
+                                            <button id="close-properties-btn" class="text-gray-400 hover:text-gray-600 p-1">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <div id="effect-properties-content" class="flex-1 overflow-y-auto p-3">
+                                            <!-- Properties will be loaded here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+                
+                <!-- Sequencer Grid -->
+                <section class="flex-1 flex flex-col overflow-hidden bg-white">
+                    <div class="flex items-center justify-between px-4 py-2 bg-gray-100 border-b border-gray-300">
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-900">Sequencer Grid</h2>
+                            <p class="text-xs text-gray-600">2 rows × 12 columns</p>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-auto p-4">
+                        <div id="sequencer-grid" class="space-y-3">
+                            <!-- Grid rows will be generated here -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <script>
+            const API_BASE = 'http://localhost:5000/api';
+            /** @type {Array<{id: string, added_timestamp: string}>} */
+            let plants = [];
+            /** @type {string[][]} */
+            let sequencer = Array(2).fill(null).map(() => Array(12).fill(''));
+            /** @type {string[][]} */
+            let effects = Array(2).fill(null).map(() => Array(12).fill(''));
+            // Edit mode removed - both plants and effects are always visible
+            /** @type {'plant' | 'effect' | null} */
+            let currentDragType = null;
+            
+            // Effect property definitions
+            const effectPropertySchemas = {
+                'AC': {
+                    frequency: { type: 'number', label: 'Frequency (Hz)', default: 60 },
+                    voltage: { type: 'number', label: 'Voltage (V)', default: 120 },
+                    phase: { type: 'number', label: 'Phase (degrees)', default: 0 }
+                },
+                'DC': {
+                    voltage: { type: 'number', label: 'Voltage (V)', default: 12 },
+                    current: { type: 'number', label: 'Current (A)', default: 1 }
+                },
+                'AMF': {
+                    frequency: { type: 'number', label: 'Frequency (Hz)', default: 50 },
+                    amplitude: { type: 'number', label: 'Amplitude (T)', default: 0.1 },
+                    phase: { type: 'number', label: 'Phase (degrees)', default: 0 }
+                },
+                'CMF': {
+                    strength: { type: 'number', label: 'Magnetic Field Strength (T)', default: 0.5 },
+                    direction: { type: 'string', label: 'Direction', default: 'vertical' }
+                }
+            };
+            
+            let currentEffectPosition = null; // {row, col} for properties panel
+            
+            // Load effect properties and update subtile display
+            async function loadEffectPropertiesForSubtile(subtile, row, col, effect, colors) {
+                try {
+                    const response = await fetch(`${API_BASE}/effects/${row}/${col}/properties`);
+                    const data = await response.json();
+                    const properties = data.properties || {};
+                    const schema = effectPropertySchemas[effect] || {};
+                    
+                    // Find existing props container or create new one
+                    let propsContainer = document.getElementById(`effect-props-${row}-${col}`);
+                    if (!propsContainer) {
+                        propsContainer = document.createElement('div');
+                        propsContainer.id = `effect-props-${row}-${col}`;
+                        propsContainer.className = 'flex flex-col w-full pointer-events-none';
+                        propsContainer.style.gap = '1px';
+                        propsContainer.style.lineHeight = '1.2';
+                        propsContainer.style.flex = '1';
+                        subtile.appendChild(propsContainer);
+                    } else {
+                        // Clear existing content
+                        propsContainer.innerHTML = '';
+                    }
+                    
+                    // Display properties in shorthand format
+                    Object.entries(schema).forEach(([key, def]) => {
+                        const value = properties[key] !== undefined ? properties[key] : def.default;
+                        const propLine = document.createElement('div');
+                        propLine.className = 'leading-tight';
+                        propLine.style.fontSize = '10px';
+                        propLine.style.color = colors.textColor;
+                        
+                        // Create shorthand labels
+                        const shorthandLabels = {
+                            'frequency': 'F',
+                            'voltage': 'V',
+                            'phase': 'P',
+                            'current': 'I',
+                            'amplitude': 'A',
+                            'strength': 'S',
+                            'direction': 'D'
+                        };
+                        
+                        const shortLabel = shorthandLabels[key] || key.substring(0, 1).toUpperCase();
+                        let displayValue = typeof value === 'number' ? value.toString() : value;
+                        // Format numbers more compactly
+                        if (typeof value === 'number') {
+                            if (value >= 1000) {
+                                displayValue = (value / 1000).toFixed(1) + 'k';
+                            } else if (value % 1 === 0) {
+                                displayValue = value.toString();
+                            } else {
+                                displayValue = value.toFixed(1);
+                            }
+                        }
+                        // Truncate long values
+                        const truncatedValue = displayValue.length > 5 ? displayValue.substring(0, 5) + '..' : displayValue;
+                        
+                        propLine.textContent = `${shortLabel}:${truncatedValue}`;
+                        propLine.title = `${def.label}: ${value}`;
+                        propsContainer.appendChild(propLine);
+                    });
+                } catch (error) {
+                    console.error('Error loading effect properties for subtile:', error);
+                    // Keep default properties that were already shown
+                }
+            }
+
+            // Load plants
+            async function loadPlants() {
+                try {
+                    const response = await fetch(`${API_BASE}/plants`);
+                    /** @type {{plants: Array<{id: string, added_timestamp: string}>}} */
+                    const data = await response.json();
+                    plants = data.plants || [];
+                    renderPlants();
+                    renderGrid(); // Update grid to reflect any changes in plant availability
+                } catch (error) {
+                    console.error('Error loading plants:', error);
+                }
+            }
+
+            // Load sequencer
+            async function loadSequencer() {
+                try {
+                    const response = await fetch(`${API_BASE}/sequencer`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    sequencer = data.sequencer || Array(2).fill(null).map(() => Array(12).fill(''));
+                    // Don't call renderGrid here - let initialization handle it
+                    renderPlants(); // Update plants list after loading sequencer
+                } catch (error) {
+                    console.error('Error loading sequencer:', error);
+                    sequencer = Array(2).fill(null).map(() => Array(12).fill(''));
+                }
+            }
+
+            // Load effects
+            async function loadEffects() {
+                try {
+                    const response = await fetch(`${API_BASE}/effects`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    effects = data.effects || Array(2).fill(null).map(() => Array(12).fill(''));
+                    console.log('Effects loaded:', effects); // Debug: verify effects are loaded
+                    // Don't call renderGrid here - let initialization handle it
+                } catch (error) {
+                    console.error('Error loading effects:', error);
+                    // Initialize empty effects array if load fails
+                    effects = Array(2).fill(null).map(() => Array(12).fill(''));
+                }
+            }
+
+            // Edit mode function removed - no longer needed
+
+            // Get plants that are not in the sequencer
+            function getAvailablePlants() {
+                const sequencerPlantIds = new Set();
+                for (let row = 0; row < 2; row++) {
+                    for (let col = 0; col < 12; col++) {
+                        const plantId = sequencer[row]?.[col];
+                        if (plantId) {
+                            sequencerPlantIds.add(plantId);
+                        }
+                    }
+                }
+                return plants.filter(plant => !sequencerPlantIds.has(plant.id));
+            }
+
+            // Setup plants list drop zone
+            function setupPlantsListDropZone() {
+                const list = document.getElementById('plants-list');
+                if (!list) return;
+                
+                list.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer) {
+                        e.dataTransfer.dropEffect = 'move';
+                    }
+                    list.classList.add('border-green-400', 'bg-green-50');
+                });
+                
+                list.addEventListener('dragleave', (e) => {
+                    // Only remove highlight if leaving the list area
+                    const rect = list.getBoundingClientRect();
+                    const x = e.clientX;
+                    const y = e.clientY;
+                    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                        list.classList.remove('border-green-400', 'bg-green-50');
+                    }
+                });
+                
+                list.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    list.classList.remove('border-green-400', 'bg-green-50');
+                    
+                    if (!e.dataTransfer) return;
+                    const plantId = e.dataTransfer.getData('plant-id') || '';
+                    const source = e.dataTransfer.getData('source') || '';
+                    
+                    // Only handle drops from grid cells
+                    if (source === 'grid' && plantId) {
+                        const sourceRow = parseInt(e.dataTransfer.getData('source-row') || '0');
+                        const sourceCol = parseInt(e.dataTransfer.getData('source-col') || '0');
+                        // Clear the plant from the grid
+                        await updateSequencer(sourceRow, sourceCol, '');
+                    }
+                });
+            }
+
+            // Render plants list
+            function renderPlants() {
+                const list = document.getElementById('plants-list');
+                const countEl = document.getElementById('plant-count');
+                if (!list) return;
+                
+                const availablePlants = getAvailablePlants();
+                
+                if (availablePlants.length === 0 && plants.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center text-gray-400 py-6">
+                            <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            <p class="text-xs">No plants yet</p>
+                            <p class="text-xs mt-1 opacity-75">Click button above</p>
+                        </div>
+                    `;
+                    if (countEl) countEl.textContent = '0';
+                    return;
+                }
+                
+                if (availablePlants.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center text-gray-400 py-6">
+                            <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-xs">All plants in use</p>
+                            <p class="text-xs mt-1 opacity-75">Remove from grid</p>
+                        </div>
+                    `;
+                    if (countEl) countEl.textContent = `${plants.length} (all in use)`;
+                    return;
+                }
+                
+                list.innerHTML = '';
+                if (countEl) countEl.textContent = `${availablePlants.length} / ${plants.length}`;
+                
+                availablePlants.forEach((plant, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'group p-2 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded cursor-move hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all duration-200';
+                    div.draggable = true;
+                    div.dataset.plantId = plant.id;
+                    
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-semibold text-green-700 bg-green-200 px-1.5 py-0.5 rounded">#${index + 1}</span>
+                            <svg class="w-3 h-3 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                            </svg>
+                        </div>
+                        <div class="font-mono text-xs font-semibold text-gray-800 truncate" title="${plant.id}">
+                            ${plant.id.substring(0, 10)}${plant.id.length > 10 ? '...' : ''}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-0.5 truncate" title="${plant.added_timestamp}">
+                            ${new Date(plant.added_timestamp).toLocaleDateString()}
+                        </div>
+                    `;
+                    
+                    div.addEventListener('dragstart', (e) => {
+                        // Plants from list are always draggable
+                        currentDragType = 'plant';
+                        // Make all effect overlays non-interactive so plant drops can pass through
+                        document.querySelectorAll('[data-effect-overlay]').forEach(overlay => {
+                            overlay.style.pointerEvents = 'none';
+                        });
+                        if (e.dataTransfer) {
+                            e.dataTransfer.setData('plant-id', plant.id);
+                            e.dataTransfer.setData('source', 'list');
+                            e.dataTransfer.effectAllowed = 'move';
+                            div.classList.add('opacity-50', 'scale-95');
+                        }
+                    });
+                    
+                    div.addEventListener('dragend', () => {
+                        div.classList.remove('opacity-50', 'scale-95');
+                        currentDragType = null;
+                        // Restore pointer events on all effect overlays
+                        document.querySelectorAll('[data-effect-overlay]').forEach(overlay => {
+                            overlay.style.pointerEvents = 'auto';
+                        });
+                    });
+                    
+                    list.appendChild(div);
+                });
+                
+                // No need to update height - using display: none/block
+            }
+
+            // Render sequencer grid
+            function renderGrid() {
+                const grid = document.getElementById('sequencer-grid');
+                if (!grid) return;
+                grid.innerHTML = '';
+                
+                for (let row = 0; row < 2; row++) {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'flex items-start gap-3 mb-3 relative';
+                    
+                    // Row label
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'w-12 flex items-center justify-center text-sm font-semibold text-gray-600 pt-3';
+                    labelDiv.textContent = `R${row + 1}`;
+                    rowDiv.appendChild(labelDiv);
+                    
+                    // Grid cells for this row
+                    const cellsDiv = document.createElement('div');
+                    cellsDiv.className = 'flex-1 grid grid-cols-12 gap-3 relative';
+                    
+                    for (let col = 0; col < 12; col++) {
+                        const plantId = sequencer[row]?.[col] || '';
+                        const effect = effects[row]?.[col] || '';
+                        
+                        // Create main tile container
+                        const tileContainer = document.createElement('div');
+                        tileContainer.className = 'relative border-2 border-gray-200 rounded-lg bg-white';
+                        tileContainer.style.minHeight = '120px';
+                        tileContainer.dataset.row = String(row);
+                        tileContainer.dataset.col = String(col);
+                        
+                        // Column number at the top (faint)
+                        const colNumber = document.createElement('div');
+                        colNumber.className = 'absolute top-1 left-1 text-xs text-gray-300 font-medium';
+                        colNumber.textContent = `C${col + 1}`;
+                        colNumber.style.pointerEvents = 'none';
+                        tileContainer.appendChild(colNumber);
+                        
+                        // Container for subtiles
+                        const subtilesContainer = document.createElement('div');
+                        subtilesContainer.className = 'flex h-full gap-0.5 p-0.5';
+                        subtilesContainer.style.paddingTop = '18px'; // Make room for column number
+                        subtilesContainer.style.width = '100%';
+                        subtilesContainer.style.boxSizing = 'border-box';
+                        
+                        // Plant subtile (left) - exactly 50% width
+                        const plantSubtile = document.createElement('div');
+                        plantSubtile.className = 'border-2 rounded-lg p-0.5 flex items-center justify-center min-h-[80px]';
+                        plantSubtile.style.width = '50%';
+                        plantSubtile.style.flexShrink = '0';
+                        plantSubtile.style.flexGrow = '0';
+                        plantSubtile.style.overflow = 'hidden';
+                        plantSubtile.style.boxSizing = 'border-box';
+                        plantSubtile.dataset.subtileType = 'plant';
+                        plantSubtile.dataset.row = String(row);
+                        plantSubtile.dataset.col = String(col);
+                        
+                        if (plantId) {
+                            const plant = plants.find(p => p.id === plantId);
+                            plantSubtile.className = 'border-2 border-blue-400 rounded-lg p-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 shadow-sm cursor-move';
+                            plantSubtile.style.width = '50%';
+                            plantSubtile.style.flexShrink = '0';
+                            plantSubtile.style.flexGrow = '0';
+                            plantSubtile.style.minHeight = '60px';
+                            plantSubtile.style.maxHeight = '80px';
+                            plantSubtile.draggable = true;
+                            plantSubtile.dataset.plantId = plantId;
+                            plantSubtile.title = 'Drag to move or return to list';
+                            
+                            // Create horizontal text container - use horizontal space efficiently
+                            const plantTextContainer = document.createElement('div');
+                            plantTextContainer.className = 'flex items-center justify-center h-full w-full pointer-events-none';
+                            plantTextContainer.style.overflow = 'hidden';
+                            plantTextContainer.style.maxWidth = '100%';
+                            plantTextContainer.style.padding = '2px';
+                            plantTextContainer.style.wordBreak = 'break-word';
+                            plantTextContainer.style.textAlign = 'center';
+                            
+                            const fullPlantId = plant ? plant.id : plantId;
+                            
+                            const plantText = document.createElement('div');
+                            plantText.className = 'font-mono font-bold';
+                            plantText.style.fontSize = '8px';
+                            plantText.style.lineHeight = '1.2';
+                            plantText.style.color = '#1e3a8a'; // High contrast blue-900
+                            plantText.style.letterSpacing = '0.3px';
+                            plantText.style.maxWidth = '100%';
+                            plantText.style.overflowWrap = 'break-word';
+                            plantText.style.wordBreak = 'break-all';
+                            plantText.textContent = fullPlantId;
+                            plantText.title = plantId;
+                            
+                            plantTextContainer.appendChild(plantText);
+                            plantSubtile.appendChild(plantTextContainer);
+                            
+                            // Drag handlers for plant subtile
+                            plantSubtile.addEventListener('dragstart', (e) => {
+                                currentDragType = 'plant';
+                                if (e.dataTransfer) {
+                                    e.dataTransfer.setData('plant-id', plantId);
+                                    e.dataTransfer.setData('source', 'grid');
+                                    e.dataTransfer.setData('source-row', String(row));
+                                    e.dataTransfer.setData('source-col', String(col));
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    plantSubtile.style.opacity = '0.5';
+                                }
+                            });
+                            
+                            plantSubtile.addEventListener('dragend', () => {
+                                plantSubtile.style.opacity = '';
+                                currentDragType = null;
+                            });
+                        } else {
+                            plantSubtile.className = 'border-2 border-dashed border-gray-300 rounded-lg p-0.5 flex flex-col items-center justify-center min-h-[80px] bg-gray-50';
+                            plantSubtile.style.width = '50%';
+                            plantSubtile.style.flexShrink = '0';
+                            plantSubtile.style.flexGrow = '0';
+                            plantSubtile.style.overflow = 'hidden';
+                            plantSubtile.style.boxSizing = 'border-box';
+                            const emptyText = document.createElement('div');
+                            emptyText.className = 'text-[10px] text-gray-400 text-center';
+                            emptyText.textContent = 'Plant';
+                            plantSubtile.appendChild(emptyText);
+                        }
+                        
+                        // Effect subtile (right) - exactly 50% width
+                        const effectSubtile = document.createElement('div');
+                        effectSubtile.className = 'border-2 rounded-lg p-1 flex flex-col items-start justify-start';
+                        effectSubtile.style.width = '50%';
+                        effectSubtile.style.flexShrink = '0';
+                        effectSubtile.style.flexGrow = '0';
+                        effectSubtile.style.minHeight = '60px';
+                        effectSubtile.style.maxHeight = '80px';
+                        effectSubtile.style.overflow = 'hidden';
+                        effectSubtile.style.boxSizing = 'border-box';
+                        effectSubtile.dataset.subtileType = 'effect';
+                        effectSubtile.dataset.row = String(row);
+                        effectSubtile.dataset.col = String(col);
+                        
+                        if (effect) {
+                            const effectColors = {
+                                'AC': { borderColor: '#f97316', bgColor: '#fff7ed', textColor: '#9a3412', labelColor: '#c2410c' },
+                                'DC': { borderColor: '#ef4444', bgColor: '#fef2f2', textColor: '#991b1b', labelColor: '#991b1b' },
+                                'AMF': { borderColor: '#a855f7', bgColor: '#faf5ff', textColor: '#6b21a8', labelColor: '#7e22ce' },
+                                'CMF': { borderColor: '#6366f1', bgColor: '#eef2ff', textColor: '#4338ca', labelColor: '#4f46e5' }
+                            };
+                            
+                            const colors = effectColors[effect] || { borderColor: '#6b7280', bgColor: '#f9fafb', textColor: '#374151', labelColor: '#374151' };
+                            
+                            effectSubtile.className = 'border-2 rounded-lg p-1 flex flex-col items-start justify-start cursor-move shadow-sm';
+                            effectSubtile.style.width = '50%';
+                            effectSubtile.style.flexShrink = '0';
+                            effectSubtile.style.flexGrow = '0';
+                            effectSubtile.style.minHeight = '60px';
+                            effectSubtile.style.maxHeight = '80px';
+                            effectSubtile.style.borderColor = colors.borderColor;
+                            effectSubtile.style.backgroundColor = colors.bgColor;
+                            effectSubtile.draggable = true;
+                            effectSubtile.dataset.effect = effect;
+                            effectSubtile.title = 'Drag to move or click to edit properties';
+                            
+                            // Effect name (larger, bold)
+                            const effectLabel = document.createElement('div');
+                            effectLabel.className = 'font-bold pointer-events-none leading-tight';
+                            effectLabel.style.fontSize = '11px';
+                            effectLabel.style.color = colors.labelColor;
+                            effectLabel.style.marginBottom = '2px';
+                            effectLabel.textContent = effect;
+                            effectSubtile.appendChild(effectLabel);
+                            
+                            // Show default properties immediately, then update when loaded
+                            const schema = effectPropertySchemas[effect] || {};
+                            const propsContainer = document.createElement('div');
+                            propsContainer.id = `effect-props-${row}-${col}`;
+                            propsContainer.className = 'flex flex-col w-full pointer-events-none';
+                            propsContainer.style.gap = '1px';
+                            propsContainer.style.lineHeight = '1.2';
+                            propsContainer.style.overflow = 'hidden';
+                            propsContainer.style.flex = '1';
+                            
+                            // Display default properties first
+                            Object.entries(schema).forEach(([key, def]) => {
+                                const propLine = document.createElement('div');
+                                propLine.className = 'leading-tight';
+                                propLine.style.fontSize = '10px';
+                                propLine.style.color = colors.textColor;
+                                
+                                const shorthandLabels = {
+                                    'frequency': 'F',
+                                    'voltage': 'V',
+                                    'phase': 'P',
+                                    'current': 'I',
+                                    'amplitude': 'A',
+                                    'strength': 'S',
+                                    'direction': 'D'
+                                };
+                                
+                                const shortLabel = shorthandLabels[key] || key.substring(0, 1).toUpperCase();
+                                let displayValue = typeof def.default === 'number' ? def.default.toString() : def.default;
+                                if (typeof def.default === 'number') {
+                                    if (def.default >= 1000) {
+                                        displayValue = (def.default / 1000).toFixed(1) + 'k';
+                                    } else if (def.default % 1 === 0) {
+                                        displayValue = def.default.toString();
+                                    } else {
+                                        displayValue = def.default.toFixed(1);
+                                    }
+                                }
+                                const truncatedValue = displayValue.length > 5 ? displayValue.substring(0, 5) + '..' : displayValue;
+                                
+                                propLine.textContent = `${shortLabel}:${truncatedValue}`;
+                                propLine.title = `${def.label}: ${def.default}`;
+                                propsContainer.appendChild(propLine);
+                            });
+                            
+                            effectSubtile.appendChild(propsContainer);
+                            
+                            // Load actual properties and update (async)
+                            loadEffectPropertiesForSubtile(effectSubtile, row, col, effect, colors);
+                            
+                            // Drag handlers for effect subtile
+                            effectSubtile.addEventListener('dragstart', (e) => {
+                                currentDragType = 'effect';
+                                if (e.dataTransfer) {
+                                    e.dataTransfer.setData('effect', effect);
+                                    e.dataTransfer.setData('source', 'grid-effect');
+                                    e.dataTransfer.setData('source-row', String(row));
+                                    e.dataTransfer.setData('source-col', String(col));
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    effectSubtile.style.opacity = '0.5';
+                                }
+                            });
+                            
+                            effectSubtile.addEventListener('dragend', () => {
+                                effectSubtile.style.opacity = '';
+                                currentDragType = null;
+                            });
+                            
+                            // Click to show properties (click anywhere on subtile)
+                            effectSubtile.addEventListener('click', (e) => {
+                                // Don't trigger if clicking on a property line
+                                if (e.target.classList.contains('pointer-events-none')) {
+                                    return;
+                                }
+                                showEffectProperties(row, col, effect);
+                            });
+                        } else {
+                            effectSubtile.className = 'border-2 border-dashed border-gray-300 rounded-lg p-1 flex flex-col items-center justify-center bg-gray-50';
+                            effectSubtile.style.width = '50%';
+                            effectSubtile.style.flexShrink = '0';
+                            effectSubtile.style.flexGrow = '0';
+                            effectSubtile.style.minHeight = '60px';
+                            effectSubtile.style.maxHeight = '80px';
+                            const emptyText = document.createElement('div');
+                            emptyText.className = 'text-[10px] text-gray-400 text-center';
+                            emptyText.textContent = 'Effect';
+                            effectSubtile.appendChild(emptyText);
+                        }
+                        
+                        // Add drop handlers to both subtiles
+                        setupSubtileDropHandlers(plantSubtile, effectSubtile, row, col);
+                        
+                        subtilesContainer.appendChild(plantSubtile);
+                        subtilesContainer.appendChild(effectSubtile);
+                        tileContainer.appendChild(subtilesContainer);
+                        cellsDiv.appendChild(tileContainer);
+                    }
+                    
+                    rowDiv.appendChild(cellsDiv);
+                    grid.appendChild(rowDiv);
+                }
+            }
+            
+            // Setup drop handlers for subtiles
+            function setupSubtileDropHandlers(plantSubtile, effectSubtile, row, col) {
+                // Plant drop handlers
+                plantSubtile.addEventListener('dragover', (e) => {
+                    if (!e.dataTransfer) return;
+                    if (currentDragType === 'effect') return;
+                    
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    plantSubtile.classList.add('border-blue-500', 'ring-2', 'ring-blue-300', 'ring-opacity-50', 'scale-105');
+                });
+                
+                plantSubtile.addEventListener('dragleave', () => {
+                    plantSubtile.classList.remove('border-blue-500', 'ring-2', 'ring-blue-300', 'ring-opacity-50', 'scale-105');
+                    const plantId = sequencer[row]?.[col] || '';
+                    if (plantId) {
+                        plantSubtile.classList.add('border-blue-400');
+                    } else {
+                        plantSubtile.classList.add('border-gray-300');
+                    }
+                });
+                
+                plantSubtile.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    plantSubtile.classList.remove('border-blue-500', 'ring-2', 'ring-blue-300', 'ring-opacity-50', 'scale-105');
+                    
+                    if (!e.dataTransfer) return;
+                    const plantId = e.dataTransfer.getData('plant-id') || '';
+                    const source = e.dataTransfer.getData('source') || '';
+                    const effect = e.dataTransfer.getData('effect') || '';
+                    
+                    if (effect || !plantId) return;
+                    if (source !== 'list' && source !== 'grid') return;
+                    
+                    const sourceRow = e.dataTransfer.getData('source-row');
+                    const sourceCol = e.dataTransfer.getData('source-col');
+                    
+                    if (source === 'grid' && sourceRow === String(row) && sourceCol === String(col)) {
+                        return;
+                    }
+                    
+                    // Check if plant is already in sequencer
+                    for (let r = 0; r < 2; r++) {
+                        for (let c = 0; c < 12; c++) {
+                            if (sequencer[r]?.[c] === plantId && 
+                                !(r === row && c === col) && 
+                                !(source === 'grid' && r === parseInt(sourceRow) && c === parseInt(sourceCol))) {
+                                alert(`Plant ${plantId.substring(0, 12)}... is already in the sequencer at position R${r+1}, C${c+1}`);
+                                return;
+                            }
+                        }
+                    }
+                    
+                    await updateSequencer(row, col, plantId);
+                });
+                
+                // Effect drop handlers
+                effectSubtile.addEventListener('dragover', (e) => {
+                    if (!e.dataTransfer) return;
+                    if (currentDragType === 'plant') return;
+                    
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    effectSubtile.classList.add('ring-2', 'ring-purple-300', 'ring-opacity-50', 'scale-105');
+                });
+                
+                effectSubtile.addEventListener('dragleave', () => {
+                    effectSubtile.classList.remove('ring-2', 'ring-purple-300', 'ring-opacity-50', 'scale-105');
+                });
+                
+                effectSubtile.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    effectSubtile.classList.remove('ring-2', 'ring-purple-300', 'ring-opacity-50', 'scale-105');
+                    
+                    if (!e.dataTransfer) return;
+                    const effect = e.dataTransfer.getData('effect') || '';
+                    const source = e.dataTransfer.getData('source') || '';
+                    const plantId = e.dataTransfer.getData('plant-id') || '';
+                    
+                    if (plantId || !effect) return;
+                    if (source !== 'effects-list' && source !== 'grid-effect') return;
+                    
+                    const sourceRow = e.dataTransfer.getData('source-row');
+                    const sourceCol = e.dataTransfer.getData('source-col');
+                    
+                    if (source === 'grid-effect' && sourceRow === String(row) && sourceCol === String(col)) {
+                        return;
+                    }
+                    
+                    await updateEffects(row, col, effect);
+                });
+                
+                // Also allow dropping on the tile container (auto-detect subtile)
+                const tileContainer = plantSubtile.parentElement?.parentElement;
+                if (tileContainer) {
+                    tileContainer.addEventListener('dragover', (e) => {
+                        if (!e.dataTransfer) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        
+                        // Determine which subtile to highlight based on drag type
+                        if (currentDragType === 'plant') {
+                            plantSubtile.classList.add('border-blue-500', 'ring-2', 'ring-blue-300', 'ring-opacity-50');
+                        } else if (currentDragType === 'effect') {
+                            effectSubtile.classList.add('ring-2', 'ring-purple-300', 'ring-opacity-50');
+                        }
+                    });
+                    
+                    tileContainer.addEventListener('dragleave', () => {
+                        plantSubtile.classList.remove('border-blue-500', 'ring-2', 'ring-blue-300', 'ring-opacity-50');
+                        effectSubtile.classList.remove('ring-2', 'ring-purple-300', 'ring-opacity-50');
+                    });
+                    
+                    tileContainer.addEventListener('drop', async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        plantSubtile.classList.remove('border-blue-500', 'ring-2', 'ring-blue-300', 'ring-opacity-50');
+                        effectSubtile.classList.remove('ring-2', 'ring-purple-300', 'ring-opacity-50');
+                        
+                        if (!e.dataTransfer) return;
+                        const plantId = e.dataTransfer.getData('plant-id') || '';
+                        const effect = e.dataTransfer.getData('effect') || '';
+                        const source = e.dataTransfer.getData('source') || '';
+                        
+                        // Auto-detect and route to correct subtile
+                        if (plantId && !effect) {
+                            // Plant drop - route to plant subtile
+                            const fakeEvent = new DragEvent('drop', { bubbles: true, cancelable: true });
+                            Object.defineProperty(fakeEvent, 'dataTransfer', { value: e.dataTransfer });
+                            plantSubtile.dispatchEvent(fakeEvent);
+                        } else if (effect && !plantId) {
+                            // Effect drop - route to effect subtile
+                            const fakeEvent = new DragEvent('drop', { bubbles: true, cancelable: true });
+                            Object.defineProperty(fakeEvent, 'dataTransfer', { value: e.dataTransfer });
+                            effectSubtile.dispatchEvent(fakeEvent);
+                        }
+                    });
+                }
+            }
+            
+            // Show effect properties panel
+            async function showEffectProperties(row, col, effect) {
+                currentEffectPosition = { row, col };
+                const panel = document.getElementById('effect-properties-panel');
+                const content = document.getElementById('effect-properties-content');
+                
+                if (!panel || !content) return;
+                
+                panel.classList.remove('hidden');
+                
+                // Load current properties
+                try {
+                    const response = await fetch(`${API_BASE}/effects/${row}/${col}/properties`);
+                    const data = await response.json();
+                    const properties = data.properties || {};
+                    const schema = effectPropertySchemas[effect] || {};
+                    
+                    // Build properties form
+                    content.innerHTML = `
+                        <div class="mb-4">
+                            <div class="text-sm font-semibold text-gray-700 mb-2">Effect: ${effect}</div>
+                            <div class="text-xs text-gray-500 mb-4">Position: R${row + 1}, C${col + 1}</div>
+                        </div>
+                        <div id="properties-form" class="space-y-3">
+                            ${Object.entries(schema).map(([key, def]) => {
+                                const value = properties[key] !== undefined ? properties[key] : def.default;
+                                if (def.type === 'number') {
+                                    return `
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">${def.label}</label>
+                                            <input type="number" 
+                                                   id="prop-${key}" 
+                                                   value="${value}" 
+                                                   step="any"
+                                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                        </div>
+                                    `;
+                                } else {
+                                    return `
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">${def.label}</label>
+                                            <input type="text" 
+                                                   id="prop-${key}" 
+                                                   value="${value}" 
+                                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                        </div>
+                                    `;
+                                }
+                            }).join('')}
+                        </div>
+                        <button id="save-properties-btn" class="w-full mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                            Save Properties
+                        </button>
+                    `;
+                    
+                    // Setup save button
+                    const saveBtn = document.getElementById('save-properties-btn');
+                    if (saveBtn) {
+                        saveBtn.addEventListener('click', async () => {
+                            const props = {};
+                            Object.keys(schema).forEach(key => {
+                                const input = document.getElementById(`prop-${key}`);
+                                if (input) {
+                                    const value = schema[key].type === 'number' ? parseFloat(input.value) : input.value;
+                                    props[key] = value;
+                                }
+                            });
+                            
+                            await saveEffectProperties(row, col, props);
+                            // Re-render grid to show updated properties in subtile
+                            renderGrid();
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error loading properties:', error);
+                    content.innerHTML = `<div class="text-red-500 text-sm">Error loading properties</div>`;
+                }
+            }
+            
+            // Save effect properties
+            async function saveEffectProperties(row, col, properties) {
+                try {
+                    const response = await fetch(`${API_BASE}/effects/${row}/${col}/properties`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ properties }),
+                    });
+                    
+                    if (response.ok) {
+                        const panel = document.getElementById('effect-properties-panel');
+                        if (panel) {
+                            panel.classList.add('hidden');
+                        }
+                        // Show success message briefly
+                        const saveBtn = document.getElementById('save-properties-btn');
+                        if (saveBtn) {
+                            const originalText = saveBtn.textContent;
+                            saveBtn.textContent = 'Saved!';
+                            saveBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                            setTimeout(() => {
+                                saveBtn.textContent = originalText;
+                                saveBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                            }, 1000);
+                        }
+                    } else {
+                        const error = await response.json();
+                        alert(`Failed to save properties: ${error.error}`);
+                    }
+                } catch (error) {
+                    console.error('Error saving properties:', error);
+                    alert('Failed to save properties');
+                }
+            }
+
+            // Update effects position
+            /**
+             * @param {number} row
+             * @param {number} col
+             * @param {string} effect
+             */
+            async function updateEffects(row, col, effect) {
+                try {
+                    // If placing an effect, first remove it from any other position
+                    if (effect) {
+                        for (let r = 0; r < 2; r++) {
+                            for (let c = 0; c < 12; c++) {
+                                if (effects[r]?.[c] === effect && !(r === row && c === col)) {
+                                    // Clear the old position
+                                    const clearResponse = await fetch(`${API_BASE}/effects`, {
+                                        method: 'PUT',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({ row: r, col: c, effect: '' }),
+                                    });
+                                    const clearData = await clearResponse.json();
+                                    effects = clearData.effects;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Get default properties for the effect
+                    const schema = effectPropertySchemas[effect] || {};
+                    const defaultProperties = {};
+                    Object.entries(schema).forEach(([key, def]) => {
+                        defaultProperties[key] = def.default;
+                    });
+                    
+                    // Update the new position with default properties
+                    const response = await fetch(`${API_BASE}/effects`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ row, col, effect, properties: defaultProperties }),
+                    });
+                    
+                    const data = await response.json();
+                    effects = data.effects;
+                    renderGrid(); // This will reload properties in subtiles
+                } catch (error) {
+                    console.error('Error updating effects:', error);
+                    alert('Failed to update effects');
+                }
+            }
+
+            // Update sequencer position
+            /**
+             * @param {number} row
+             * @param {number} col
+             * @param {string} plantId
+             */
+            async function updateSequencer(row, col, plantId) {
+                try {
+                    // If placing a plant, first remove it from any other position
+                    if (plantId) {
+                        for (let r = 0; r < 2; r++) {
+                            for (let c = 0; c < 12; c++) {
+                                if (sequencer[r]?.[c] === plantId && !(r === row && c === col)) {
+                                    // Clear the old position
+                                    const clearResponse = await fetch(`${API_BASE}/sequencer`, {
+                                        method: 'PUT',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({ row: r, col: c, plant_id: '' }),
+                                    });
+                                    const clearData = await clearResponse.json();
+                                    sequencer = clearData.sequencer;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Update the new position
+                    const response = await fetch(`${API_BASE}/sequencer`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ row, col, plant_id: plantId }),
+                    });
+                    
+                    const data = await response.json();
+                    sequencer = data.sequencer;
+                    renderGrid();
+                    renderPlants(); // Update plants list to reflect changes
+                } catch (error) {
+                    console.error('Error updating sequencer:', error);
+                    alert('Failed to update sequencer');
+                }
+            }
+
+            // Create new plant
+            const createBtn = document.getElementById('create-plant-btn');
+            if (createBtn && createBtn instanceof HTMLButtonElement) {
+                createBtn.addEventListener('click', async () => {
+                    const originalText = createBtn.innerHTML;
+                    createBtn.disabled = true;
+                    createBtn.innerHTML = `
+                        <svg class="animate-spin w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Creating...</span>
+                    `;
+                    createBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/plants`, {
+                            method: 'POST',
+                        });
+                        
+                        if (response.ok) {
+                            await loadPlants();
+                        } else {
+                            const error = await response.json();
+                            alert(`Failed to create plant: ${error.error}`);
+                        }
+                    } catch (error) {
+                        console.error('Error creating plant:', error);
+                        alert('Failed to create plant. Make sure the Flask server is running.');
+                    } finally {
+                        createBtn.disabled = false;
+                        createBtn.innerHTML = originalText;
+                        createBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    }
+                });
+            }
+
+            // Setup effects drag handlers and drop zone
+            function setupEffectsDragHandlers() {
+                const effectsList = document.getElementById('effects-list');
+                if (!effectsList) return;
+                
+                const effectItems = effectsList.querySelectorAll('[data-effect]');
+                effectItems.forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        // Effects from list are always draggable
+                        currentDragType = 'effect';
+                        // Restore pointer events on all effect overlays (in case they were disabled)
+                        document.querySelectorAll('[data-effect-overlay]').forEach(overlay => {
+                            overlay.style.pointerEvents = 'auto';
+                        });
+                        if (e.dataTransfer) {
+                            const effect = item.dataset.effect || '';
+                            e.dataTransfer.setData('effect', effect);
+                            e.dataTransfer.setData('source', 'effects-list');
+                            e.dataTransfer.effectAllowed = 'move';
+                            item.classList.add('opacity-50', 'scale-95');
+                        }
+                    });
+                    
+                    item.addEventListener('dragend', () => {
+                        item.classList.remove('opacity-50', 'scale-95');
+                        currentDragType = null;
+                        // Restore pointer events on all effect overlays
+                        document.querySelectorAll('[data-effect-overlay]').forEach(overlay => {
+                            overlay.style.pointerEvents = 'auto';
+                        });
+                    });
+                });
+                
+                // Make effects list a drop zone
+                effectsList.addEventListener('dragover', (e) => {
+                    const source = e.dataTransfer?.getData('source') || '';
+                    if (source === 'grid-effect') {
+                        e.preventDefault();
+                        if (e.dataTransfer) {
+                            e.dataTransfer.dropEffect = 'move';
+                        }
+                        effectsList.classList.add('border-purple-400', 'bg-purple-50');
+                    }
+                });
+                
+                effectsList.addEventListener('dragleave', (e) => {
+                    const rect = effectsList.getBoundingClientRect();
+                    const x = e.clientX;
+                    const y = e.clientY;
+                    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                        effectsList.classList.remove('border-purple-400', 'bg-purple-50');
+                    }
+                });
+                
+                effectsList.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    effectsList.classList.remove('border-purple-400', 'bg-purple-50');
+                    
+                    if (!e.dataTransfer) return;
+                    const effect = e.dataTransfer.getData('effect') || '';
+                    const source = e.dataTransfer.getData('source') || '';
+                    
+                    // Only handle drops from grid
+                    if (source === 'grid-effect' && effect) {
+                        const sourceRow = parseInt(e.dataTransfer.getData('source-row') || '0');
+                        const sourceCol = parseInt(e.dataTransfer.getData('source-col') || '0');
+                        // Clear the effect from the grid
+                        await updateEffects(sourceRow, sourceCol, '');
+                    }
+                });
+            }
+
+            // Close properties panel
+            const closePropertiesBtn = document.getElementById('close-properties-btn');
+            if (closePropertiesBtn) {
+                closePropertiesBtn.addEventListener('click', () => {
+                    const panel = document.getElementById('effect-properties-panel');
+                    if (panel) {
+                        panel.classList.add('hidden');
+                    }
+                    currentEffectPosition = null;
+                });
+            }
+
+            // Initialize
+            setupPlantsListDropZone();
+            setupEffectsDragHandlers();
+            
+            // Pane and section collapse/expand functionality
+            let leftPaneCollapsed = false;
+            let plantsSectionExpanded = true;
+            let effectsSectionExpanded = true;
+            
+            // Toggle left pane (main collapse)
+            function toggleLeftPane() {
+                leftPaneCollapsed = !leftPaneCollapsed;
+                const pane = document.getElementById('left-pane');
+                const content = document.getElementById('left-pane-content');
+                const header = document.getElementById('left-pane-header');
+                const title = document.getElementById('left-pane-title');
+                const icon = document.getElementById('toggle-left-pane-icon');
+                
+                if (!pane || !content || !header || !icon) return;
+                
+                if (leftPaneCollapsed) {
+                    // Collapse: keep header visible with just button
+                    pane.style.width = '32px'; // Just enough for the button
+                    pane.style.minWidth = '32px';
+                    content.style.display = 'none';
+                    if (title) title.style.display = 'none';
+                    icon.style.transform = 'rotate(180deg)';
+                    // Make header full width of collapsed pane
+                    header.style.paddingLeft = '4px';
+                    header.style.paddingRight = '4px';
+                } else {
+                    // Expand
+                    pane.style.width = '320px';
+                    pane.style.minWidth = '0';
+                    content.style.display = 'flex';
+                    if (title) title.style.display = 'block';
+                    icon.style.transform = 'rotate(0deg)';
+                    // Restore header padding
+                    header.style.paddingLeft = '';
+                    header.style.paddingRight = '';
+                }
+            }
+            
+            // Toggle plants section - instant, no animation
+            function togglePlantsSection() {
+                plantsSectionExpanded = !plantsSectionExpanded;
+                const content = document.getElementById('plants-section-content');
+                const icon = document.getElementById('plants-section-icon');
+                
+                if (!content || !icon) return;
+                
+                if (plantsSectionExpanded) {
+                    // Expand: show instantly
+                    content.style.display = 'block';
+                    content.style.maxHeight = 'none';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    // Collapse: hide instantly
+                    content.style.display = 'none';
+                    content.style.maxHeight = '0';
+                    icon.style.transform = 'rotate(-90deg)';
+                }
+            }
+            
+            // Toggle effects section - instant, no animation
+            function toggleEffectsSection() {
+                effectsSectionExpanded = !effectsSectionExpanded;
+                const content = document.getElementById('effects-section-content');
+                const icon = document.getElementById('effects-section-icon');
+                
+                if (!content || !icon) return;
+                
+                if (effectsSectionExpanded) {
+                    // Expand: show instantly
+                    content.style.display = 'flex';
+                    content.style.maxHeight = 'none';
+                    icon.style.transform = 'rotate(0deg)';
+                } else {
+                    // Collapse: hide instantly
+                    content.style.display = 'none';
+                    content.style.maxHeight = '0';
+                    icon.style.transform = 'rotate(-90deg)';
+                }
+            }
+            
+            // Setup toggle buttons
+            const toggleLeftPaneBtn = document.getElementById('toggle-left-pane-btn');
+            const togglePlantsSectionBtn = document.getElementById('toggle-plants-section-btn');
+            const toggleEffectsSectionBtn = document.getElementById('toggle-effects-section-btn');
+            
+            if (toggleLeftPaneBtn) {
+                toggleLeftPaneBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleLeftPane();
+                });
+            }
+            
+            if (togglePlantsSectionBtn) {
+                togglePlantsSectionBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    togglePlantsSection();
+                });
+            }
+            
+            if (toggleEffectsSectionBtn) {
+                toggleEffectsSectionBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleEffectsSection();
+                });
+            }
+            
+            // Initialize sections as expanded - instant
+            const plantsContent = document.getElementById('plants-section-content');
+            const effectsContent = document.getElementById('effects-section-content');
+            if (plantsContent && plantsSectionExpanded) {
+                plantsContent.style.display = 'block';
+                plantsContent.style.maxHeight = 'none';
+            }
+            if (effectsContent && effectsSectionExpanded) {
+                effectsContent.style.display = 'flex';
+                effectsContent.style.maxHeight = 'none';
+            }
+            
+            // Initialize: load all data, then render
+            async function initialize() {
+                try {
+                    await Promise.all([
+                        loadPlants(),
+                        loadSequencer(),
+                        loadEffects()
+                    ]);
+                    // Render grid after all data is loaded
+                    renderGrid();
+                } catch (error) {
+                    console.error('Error during initialization:', error);
+                    // Still render grid even if there's an error
+                    renderGrid();
+                }
+            }
+            
+            initialize();
+        </script>
+    </body>
+</html>

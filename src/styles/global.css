@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Recursive:wght@300..1000&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+    --font-sans: 'Recursive', sans-serif;
+}
+
+/* Base styles */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* Ensure SVGs don't overflow */
+svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}

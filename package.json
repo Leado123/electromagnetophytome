@@ -6,9 +6,17 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "dev:all": "node scripts/dev.js",
+    "build:all": "node scripts/build.js",
+    "start:backend": "cd backend && uv run python run_server.py",
+    "start:frontend": "bun run dev"
   },
   "dependencies": {
-    "astro": "^5.16.9"
+    "@astrojs/db": "^0.18.3",
+    "@fontsource-variable/recursive": "^5.2.8",
+    "@tailwindcss/vite": "^4.1.18",
+    "astro": "^5.16.9",
+    "tailwindcss": "^4.1.18"
   }
 }
