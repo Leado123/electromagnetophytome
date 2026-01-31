@@ -1589,14 +1589,19 @@ import '../styles/global.css';
                     const sanitizedPlantId = robot.holding_plant ? escapeHtml(robot.holding_plant) : '';
                     const truncatedPlantId = sanitizedPlantId.length > 12 ? sanitizedPlantId.substring(0, 12) + '...' : sanitizedPlantId;
                     
+                    // Sanitize numeric values for safety
+                    const robotIdDisplay = escapeHtml(String(Number(robot.id) + 1));
+                    const rowDisplay = escapeHtml(String(Number(robot.row) + 1));
+                    const colDisplay = escapeHtml(Number(robot.col).toFixed(1));
+                    
                     robotEl.className = `p-2 rounded border ${stateColor}`;
                     robotEl.innerHTML = `
                         <div class="flex items-center justify-between mb-1">
-                            <span class="text-xs font-bold text-gray-700">Robot ${robot.id + 1}</span>
+                            <span class="text-xs font-bold text-gray-700">Robot ${robotIdDisplay}</span>
                             <span class="text-xs px-1.5 py-0.5 rounded ${stateColor}">${escapeHtml(stateText)}</span>
                         </div>
                         <div class="text-xs text-gray-600">
-                            <div>Row: ${robot.row + 1} | Col: ${robot.col.toFixed(1)}</div>
+                            <div>Row: ${rowDisplay} | Col: ${colDisplay}</div>
                             ${robot.holding_plant ? `<div class="text-blue-600 truncate" title="${sanitizedPlantId}">Holding: ${truncatedPlantId}</div>` : ''}
                         </div>
                     `;
