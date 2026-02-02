@@ -1,0 +1,53 @@
+---
+// Right sidebar showing robot and simulation status
+import Icon from '../common/Icon.astro';
+---
+
+<aside id="right-pane" class="flex flex-col bg-white border-l border-gray-300" style="width: 280px; min-width: 0;">
+    <!-- Header -->
+    <div id="right-pane-header" class="flex items-center justify-between p-2 h-14 bg-gray-100 border-b border-gray-300">
+        <div class="flex items-center gap-2">
+            <h2 id="right-pane-title" class="text-sm font-semibold text-gray-900">Status</h2>
+        </div>
+        <button id="toggle-right-pane-btn" class="p-1 hover:bg-gray-200 rounded" title="Collapse/Expand">
+            <Icon name="chevron-right" class="w-4 h-4 text-gray-600 transform rotate-180" />
+        </button>
+    </div>
+    
+    <div id="right-pane-content" class="flex-1 overflow-y-auto p-3">
+        <!-- Robots Section -->
+        <div class="mb-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Robots</h3>
+            <div id="robots-status" class="space-y-2">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+        
+        <!-- Observation Queue -->
+        <div class="mb-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Observation Queue</h3>
+            <div id="observation-queue" class="text-xs text-gray-500">
+                No pending observations
+            </div>
+        </div>
+        
+        <!-- Tile Allocation Legend -->
+        <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">Zone Legend</h3>
+            <div class="space-y-1.5 text-xs">
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded bg-green-100 border border-green-300"></div>
+                    <span class="text-gray-600">Storage (0-7)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded bg-purple-100 border border-purple-300"></div>
+                    <span class="text-gray-600">EM Exposure (8-11)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded bg-blue-100 border border-blue-300"></div>
+                    <span class="text-gray-600">Observation Station</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</aside>

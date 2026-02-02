@@ -1,0 +1,69 @@
+---
+// Statistics sidebar for graph page
+---
+
+<div class="col-span-3 flex flex-col gap-4">
+    <!-- Statistics Panel -->
+    <div class="bg-slate-800 rounded-xl border border-slate-700 p-4 flex-1">
+        <h2 class="text-sm font-bold text-slate-300 mb-3">📈 Statistics</h2>
+        <div id="stats-panel" class="space-y-3 text-xs">
+            <!-- AC Stats -->
+            <div class="p-2 bg-slate-700/50 rounded">
+                <div class="text-orange-400 font-semibold mb-1">⚡ AC Effect</div>
+                <div class="grid grid-cols-2 gap-1 text-slate-400">
+                    <span>Points:</span><span id="ac-count" class="text-white font-mono">0</span>
+                    <span>Mean:</span><span id="ac-mean" class="text-white font-mono">-</span>
+                    <span>Std Dev:</span><span id="ac-std" class="text-white font-mono">-</span>
+                </div>
+            </div>
+            
+            <!-- DC Stats -->
+            <div class="p-2 bg-slate-700/50 rounded">
+                <div class="text-red-400 font-semibold mb-1">🔋 DC Effect</div>
+                <div class="grid grid-cols-2 gap-1 text-slate-400">
+                    <span>Points:</span><span id="dc-count" class="text-white font-mono">0</span>
+                    <span>Mean:</span><span id="dc-mean" class="text-white font-mono">-</span>
+                    <span>Std Dev:</span><span id="dc-std" class="text-white font-mono">-</span>
+                </div>
+            </div>
+            
+            <!-- AMF Stats -->
+            <div class="p-2 bg-slate-700/50 rounded">
+                <div class="text-purple-400 font-semibold mb-1">🧲 AMF Effect</div>
+                <div class="grid grid-cols-2 gap-1 text-slate-400">
+                    <span>Points:</span><span id="amf-count" class="text-white font-mono">0</span>
+                    <span>Mean:</span><span id="amf-mean" class="text-white font-mono">-</span>
+                    <span>Std Dev:</span><span id="amf-std" class="text-white font-mono">-</span>
+                </div>
+            </div>
+            
+            <!-- CMF Stats -->
+            <div class="p-2 bg-slate-700/50 rounded">
+                <div class="text-indigo-400 font-semibold mb-1">🧭 CMF Effect</div>
+                <div class="grid grid-cols-2 gap-1 text-slate-400">
+                    <span>Points:</span><span id="cmf-count" class="text-white font-mono">0</span>
+                    <span>Mean:</span><span id="cmf-mean" class="text-white font-mono">-</span>
+                    <span>Std Dev:</span><span id="cmf-std" class="text-white font-mono">-</span>
+                </div>
+            </div>
+            
+            <!-- Control Stats -->
+            <div class="p-2 bg-slate-700/50 rounded">
+                <div class="text-slate-400 font-semibold mb-1">🌱 Control</div>
+                <div class="grid grid-cols-2 gap-1 text-slate-400">
+                    <span>Points:</span><span id="control-count" class="text-white font-mono">0</span>
+                    <span>Mean:</span><span id="control-mean" class="text-white font-mono">-</span>
+                    <span>Std Dev:</span><span id="control-std" class="text-white font-mono">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Comparison Chart -->
+    <div class="bg-slate-800 rounded-xl border border-slate-700 p-4" style="min-height: 200px;">
+        <h2 class="text-sm font-bold text-slate-300 mb-2">📊 Effect Comparison</h2>
+        <div style="height: 160px;">
+            <canvas id="chart-comparison"></canvas>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,714 @@
+---
+/**
+ * Sequencer Page - Refactored Version
+ * Uses modular components for cleaner organization
+ */
+import '../styles/global.css';
+import SimulationControls from '../components/sequencer/SimulationControls.astro';
+import ResourceSidebar from '../components/sequencer/ResourceSidebar.astro';
+import SequencerGrid from '../components/sequencer/SequencerGrid.astro';
+import StatusSidebar from '../components/sequencer/StatusSidebar.astro';
+---
+
+<html lang="en" class="h-full">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Sequencer</title>
+    </head>
+    <body class="bg-gray-50 h-full overflow-hidden flex flex-col">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-300 px-4 py-2 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <h1 class="text-lg font-semibold text-gray-900">Sequencer</h1>
+                <p class="text-xs text-gray-600">Drag plants and effects into the grid tiles</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+            <!-- Simulation Controls Bar -->
+            <SimulationControls />
+
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Left Sidebar -->
+                <ResourceSidebar />
+
+                <!-- Main Grid Area -->
+                <SequencerGrid />
+
+                <!-- Right Sidebar -->
+                <StatusSidebar />
+            </div>
+        </main>
+
+        <!-- Effect Limits Modal -->
+        <div id="effect-limits-modal" class="fixed inset-0 hidden z-50 items-center justify-center bg-black/50">
+            <div class="bg-white rounded-lg border border-gray-200 w-full max-w-2xl shadow-lg overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
+                    <h3 class="text-sm font-semibold text-gray-900">Global Effect Limits</h3>
+                    <button id="close-effect-limits-btn" class="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="effect-limits-content" class="p-4 max-h-[75vh] overflow-y-auto text-sm">
+                    <!-- Limits form will be rendered here -->
+                </div>
+                <div class="px-4 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-2">
+                    <button id="save-effect-limits-btn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 font-medium">Save Limits</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sequencer Script -->
+        <script>
+            import { API_BASE, EFFECT_COLORS, ROBOT_STATES, GRID_ROWS, GRID_COLS, STORAGE_COLS, EM_EXPOSURE_COLS } from '../lib/sequencer/config';
+            import * as api from '../lib/sequencer/api';
+
+            // State
+            let plants: any[] = [];
+            let sequencer: string[][] = Array(2).fill(null).map(() => Array(12).fill(""));
+            let effects: string[][] = Array(2).fill(null).map(() => Array(12).fill(""));
+            let simulationState = {
+                running: false,
+                tick: 0,
+                speed: 1.0,
+                robots: [],
+                tile_allocation: { storage_cols: STORAGE_COLS, em_exposure_cols: EM_EXPOSURE_COLS }
+            };
+            let currentDragType: 'plant' | 'effect' | null = null;
+            let simulationPollingInterval: number | null = null;
+
+            // Load functions
+            async function loadPlants() {
+                try {
+                    plants = await api.fetchPlants();
+                    renderPlants();
+                    renderGrid();
+                } catch (error) {
+                    console.error("Error loading plants:", error);
+                }
+            }
+
+            async function loadSequencer() {
+                try {
+                    sequencer = await api.fetchSequencer();
+                    renderPlants();
+                } catch (error) {
+                    console.error("Error loading sequencer:", error);
+                    sequencer = Array(2).fill(null).map(() => Array(12).fill(""));
+                }
+            }
+
+            async function loadEffects() {
+                try {
+                    effects = await api.fetchEffects();
+                } catch (error) {
+                    console.error("Error loading effects:", error);
+                    effects = Array(2).fill(null).map(() => Array(12).fill(""));
+                }
+            }
+
+            async function loadSimulationState() {
+                try {
+                    simulationState = await api.fetchSimulationState();
+                    updateSimulationUI();
+                } catch (error) {
+                    console.error("Error loading simulation state:", error);
+                }
+            }
+
+            // Update functions
+            async function updateSequencer(row: number, col: number, plantId: string) {
+                try {
+                    const data = await api.updateSequencer(row, col, plantId);
+                    sequencer = data.sequencer;
+                    renderPlants();
+                    renderGrid();
+                } catch (error) {
+                    console.error("Error updating sequencer:", error);
+                }
+            }
+
+            async function updateEffect(row: number, col: number, effect: string, properties?: Record<string, any>) {
+                try {
+                    await api.updateEffect(row, col, effect, properties);
+                    await loadEffects();
+                    renderGrid();
+                } catch (error) {
+                    console.error("Error updating effect:", error);
+                }
+            }
+
+            // UI Helper functions
+            function getAvailablePlants() {
+                const sequencerPlantIds = new Set<string>();
+                for (let row = 0; row < 2; row++) {
+                    for (let col = 0; col < 12; col++) {
+                        const plantId = sequencer[row]?.[col];
+                        if (plantId) sequencerPlantIds.add(plantId);
+                    }
+                }
+                return plants.filter(plant => !sequencerPlantIds.has(plant.id));
+            }
+
+            function renderPlants() {
+                const list = document.getElementById("plants-list");
+                const countEl = document.getElementById("plant-count");
+                if (!list) return;
+
+                const availablePlants = getAvailablePlants();
+
+                if (availablePlants.length === 0 && plants.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center text-gray-400 py-6">
+                            <p class="text-xs">No plants yet</p>
+                            <p class="text-xs mt-1 opacity-75">Click Fill Plants above</p>
+                        </div>
+                    `;
+                    if (countEl) countEl.textContent = "0";
+                    return;
+                }
+
+                if (availablePlants.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center text-gray-400 py-6">
+                            <p class="text-xs">All plants in use</p>
+                        </div>
+                    `;
+                    if (countEl) countEl.textContent = `${plants.length} (all in use)`;
+                    return;
+                }
+
+                list.innerHTML = "";
+                if (countEl) countEl.textContent = `${availablePlants.length} / ${plants.length}`;
+
+                availablePlants.forEach((plant, index) => {
+                    const div = document.createElement("div");
+                    div.className = "group p-2 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded cursor-move hover:from-green-100 hover:to-emerald-100 hover:border-green-300 transition-all";
+                    div.draggable = true;
+                    div.dataset.plantId = plant.id;
+
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-semibold text-green-700 bg-green-200 px-1.5 py-0.5 rounded">#${index + 1}</span>
+                        </div>
+                        <div class="font-mono text-xs font-semibold text-gray-800 truncate" title="${plant.id}">
+                            ${plant.id.substring(0, 10)}${plant.id.length > 10 ? "..." : ""}
+                        </div>
+                    `;
+
+                    div.addEventListener("dragstart", (e) => {
+                        currentDragType = "plant";
+                        if (e.dataTransfer) {
+                            e.dataTransfer.setData("plant-id", plant.id);
+                            e.dataTransfer.setData("source", "list");
+                            e.dataTransfer.effectAllowed = "move";
+                        }
+                    });
+
+                    div.addEventListener("dragend", () => {
+                        currentDragType = null;
+                    });
+
+                    list.appendChild(div);
+                });
+            }
+
+            function renderGrid() {
+                const gridEl = document.getElementById("sequencer-grid");
+                if (!gridEl) return;
+
+                gridEl.innerHTML = "";
+                gridEl.className = "grid gap-1";
+                gridEl.style.gridTemplateColumns = `repeat(${GRID_COLS}, 80px)`;
+
+                for (let row = 0; row < GRID_ROWS; row++) {
+                    for (let col = 0; col < GRID_COLS; col++) {
+                        const cell = document.createElement("div");
+                        const isEMZone = EM_EXPOSURE_COLS.includes(col);
+                        const plantId = sequencer[row]?.[col] || "";
+                        const effect = effects[row]?.[col] || "";
+
+                        cell.className = `relative h-20 border-2 rounded transition-all ${
+                            isEMZone 
+                                ? "bg-purple-50 border-purple-200" 
+                                : "bg-green-50 border-green-200"
+                        }`;
+
+                        // Plant display
+                        if (plantId) {
+                            const plantDiv = document.createElement("div");
+                            plantDiv.className = "absolute inset-1 bg-green-100 border border-green-300 rounded p-1 cursor-move";
+                            plantDiv.draggable = true;
+                            plantDiv.innerHTML = `
+                                <div class="text-xs font-mono truncate text-green-700">${plantId.substring(0, 8)}</div>
+                            `;
+                            plantDiv.addEventListener("dragstart", (e) => {
+                                currentDragType = "plant";
+                                if (e.dataTransfer) {
+                                    e.dataTransfer.setData("plant-id", plantId);
+                                    e.dataTransfer.setData("source", "grid");
+                                    e.dataTransfer.setData("source-row", String(row));
+                                    e.dataTransfer.setData("source-col", String(col));
+                                }
+                            });
+                            cell.appendChild(plantDiv);
+                        }
+
+                        // Effect display (EM zone only)
+                        if (isEMZone && effect) {
+                            const colors = EFFECT_COLORS[effect as keyof typeof EFFECT_COLORS];
+                            if (colors) {
+                                const effectDiv = document.createElement("div");
+                                effectDiv.className = `absolute bottom-1 right-1 px-1 py-0.5 rounded text-xs font-bold cursor-move ${colors.bg} ${colors.text}`;
+                                effectDiv.draggable = true;
+                                effectDiv.textContent = `${colors.icon} ${effect}`;
+                                effectDiv.addEventListener("dragstart", (e) => {
+                                    e.stopPropagation();
+                                    currentDragType = "effect";
+                                    if (e.dataTransfer) {
+                                        e.dataTransfer.setData("effect-type", effect);
+                                        e.dataTransfer.setData("effect-source", "grid");
+                                        e.dataTransfer.setData("effect-source-row", String(row));
+                                        e.dataTransfer.setData("effect-source-col", String(col));
+                                    }
+                                });
+                                cell.appendChild(effectDiv);
+                            }
+                        }
+
+                        // Drop handling
+                        cell.addEventListener("dragover", (e) => {
+                            e.preventDefault();
+                            cell.classList.add("ring-2", "ring-blue-400");
+                        });
+
+                        cell.addEventListener("dragleave", () => {
+                            cell.classList.remove("ring-2", "ring-blue-400");
+                        });
+
+                        cell.addEventListener("drop", async (e) => {
+                            e.preventDefault();
+                            cell.classList.remove("ring-2", "ring-blue-400");
+
+                            if (!e.dataTransfer) return;
+
+                            const droppedPlantId = e.dataTransfer.getData("plant-id");
+                            const droppedEffect = e.dataTransfer.getData("effect-type");
+                            const source = e.dataTransfer.getData("source");
+                            const effectSource = e.dataTransfer.getData("effect-source");
+
+                            if (droppedPlantId) {
+                                const existingPlantId = sequencer[row]?.[col] || "";
+                                
+                                if (source === "grid") {
+                                    const sourceRow = parseInt(e.dataTransfer.getData("source-row") || "0");
+                                    const sourceCol = parseInt(e.dataTransfer.getData("source-col") || "0");
+                                    
+                                    // Skip if dropping on same cell
+                                    if (sourceRow === row && sourceCol === col) return;
+                                    
+                                    // Swap plants if target has a plant
+                                    if (existingPlantId) {
+                                        await updateSequencer(sourceRow, sourceCol, existingPlantId);
+                                    } else {
+                                        await updateSequencer(sourceRow, sourceCol, "");
+                                    }
+                                }
+                                await updateSequencer(row, col, droppedPlantId);
+                            } else if (droppedEffect && isEMZone) {
+                                // If effect is from grid, clear the source first
+                                if (effectSource === "grid") {
+                                    const srcRow = parseInt(e.dataTransfer.getData("effect-source-row") || "0");
+                                    const srcCol = parseInt(e.dataTransfer.getData("effect-source-col") || "0");
+                                    // Skip if same cell
+                                    if (srcRow === row && srcCol === col) return;
+                                    await updateEffect(srcRow, srcCol, "");
+                                }
+                                await updateEffect(row, col, droppedEffect);
+                            }
+                        });
+
+                        gridEl.appendChild(cell);
+                    }
+                }
+            }
+
+            function renderRobots() {
+                const robotsEl = document.getElementById("robots-status");
+                if (!robotsEl) return;
+
+                robotsEl.innerHTML = "";
+                simulationState.robots.forEach((robot: any) => {
+                    const state = ROBOT_STATES[robot.state as keyof typeof ROBOT_STATES] || ROBOT_STATES.idle;
+                    const div = document.createElement("div");
+                    div.className = "p-2 bg-gray-50 rounded border";
+                    div.innerHTML = `
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-semibold text-sm">Robot ${robot.id}</span>
+                            <span class="px-2 py-0.5 rounded text-xs text-white ${state.color}">${state.label}</span>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            Row ${robot.row}, Col ${robot.col.toFixed(1)}
+                            ${robot.holding_plant ? ` • Holding: ${robot.holding_plant.substring(0, 8)}` : ''}
+                        </div>
+                    `;
+                    robotsEl.appendChild(div);
+                });
+            }
+
+            function updateSimulationUI() {
+                const tickEl = document.getElementById("tick-display");
+                const statusEl = document.getElementById("simulation-status");
+                const startBtn = document.getElementById("simulation-start-btn");
+                const pauseBtn = document.getElementById("simulation-pause-btn");
+                const speedInput = document.getElementById("speed-input") as HTMLInputElement;
+
+                if (tickEl) tickEl.textContent = String(simulationState.tick);
+                if (statusEl) {
+                    statusEl.textContent = simulationState.running ? "Running" : "Stopped";
+                    statusEl.className = `text-sm font-medium px-2 py-0.5 rounded ${
+                        simulationState.running ? "bg-green-200 text-green-700" : "bg-gray-200 text-gray-700"
+                    }`;
+                }
+                if (startBtn) startBtn.classList.toggle("hidden", simulationState.running);
+                if (pauseBtn) pauseBtn.classList.toggle("hidden", !simulationState.running);
+                if (speedInput) speedInput.value = String(simulationState.speed);
+
+                renderRobots();
+            }
+
+            // Simulation polling
+            function startSimulationPolling() {
+                if (simulationPollingInterval) return;
+                simulationPollingInterval = window.setInterval(async () => {
+                    await loadSimulationState();
+                    await loadSequencer();
+                    renderGrid();
+                }, 500);
+            }
+
+            function stopSimulationPolling() {
+                if (simulationPollingInterval) {
+                    clearInterval(simulationPollingInterval);
+                    simulationPollingInterval = null;
+                }
+            }
+
+            // Event handlers setup
+            function setupEventHandlers() {
+                // Start button
+                document.getElementById("simulation-start-btn")?.addEventListener("click", async () => {
+                    await api.startSimulation();
+                    simulationState.running = true;
+                    updateSimulationUI();
+                    startSimulationPolling();
+                });
+
+                // Pause button
+                document.getElementById("simulation-pause-btn")?.addEventListener("click", async () => {
+                    await api.stopSimulation();
+                    simulationState.running = false;
+                    updateSimulationUI();
+                    stopSimulationPolling();
+                });
+
+                // Reset button
+                document.getElementById("simulation-reset-btn")?.addEventListener("click", async () => {
+                    await api.resetSimulation();
+                    await loadSimulationState();
+                    stopSimulationPolling();
+                });
+
+                // Speed controls
+                document.getElementById("speed-slower-btn")?.addEventListener("click", async () => {
+                    const newSpeed = Math.max(0.1, simulationState.speed / 2);
+                    await api.setSimulationSpeed(newSpeed);
+                    simulationState.speed = newSpeed;
+                    updateSimulationUI();
+                });
+
+                document.getElementById("speed-faster-btn")?.addEventListener("click", async () => {
+                    const newSpeed = Math.min(1000, simulationState.speed * 2);
+                    await api.setSimulationSpeed(newSpeed);
+                    simulationState.speed = newSpeed;
+                    updateSimulationUI();
+                });
+
+                // Speed input manual change
+                document.getElementById("speed-input")?.addEventListener("change", async (e) => {
+                    const input = e.target as HTMLInputElement;
+                    const newSpeed = Math.max(0.1, Math.min(1000, parseFloat(input.value) || 1.0));
+                    await api.setSimulationSpeed(newSpeed);
+                    simulationState.speed = newSpeed;
+                    updateSimulationUI();
+                });
+
+                // Auto-populate plants
+                document.getElementById("auto-populate-btn")?.addEventListener("click", async () => {
+                    const btn = document.getElementById("auto-populate-btn") as HTMLButtonElement;
+                    btn.disabled = true;
+                    btn.textContent = "Filling...";
+                    try {
+                        await api.autoPopulatePlants();
+                        await loadSequencer();
+                        await loadPlants();
+                        renderGrid();
+                    } catch (error: any) {
+                        alert("Failed to auto-populate: " + error.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Fill Plants`;
+                    }
+                });
+
+                // Auto-set EM effects
+                document.getElementById("auto-set-em-btn")?.addEventListener("click", async () => {
+                    const btn = document.getElementById("auto-set-em-btn") as HTMLButtonElement;
+                    btn.disabled = true;
+                    btn.textContent = "Setting...";
+                    try {
+                        const result = await api.autoSetEmEffects();
+                        await loadEffects();
+                        renderGrid();
+                        if (result.success) {
+                            alert(`Auto-set ${result.count} EM effect(s)`);
+                        }
+                    } catch (error) {
+                        alert("Failed to auto-set EM effects");
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Auto EM`;
+                    }
+                });
+
+                // Clear all
+                document.getElementById("clear-all-btn")?.addEventListener("click", async () => {
+                    if (!confirm("Are you sure you want to clear all data?")) return;
+                    try {
+                        await api.clearAllData();
+                        await Promise.all([loadPlants(), loadSequencer(), loadEffects(), loadSimulationState()]);
+                        renderGrid();
+                    } catch (error) {
+                        alert("Failed to clear data");
+                    }
+                });
+
+                // Effect draggables
+                document.querySelectorAll(".effect-draggable").forEach(el => {
+                    el.addEventListener("dragstart", (e) => {
+                        currentDragType = "effect";
+                        const effectType = (el as HTMLElement).dataset.effectType;
+                        if ((e as DragEvent).dataTransfer && effectType) {
+                            (e as DragEvent).dataTransfer!.setData("effect-type", effectType);
+                        }
+                    });
+                    el.addEventListener("dragend", () => {
+                        currentDragType = null;
+                    });
+                });
+
+                // Trash zone for removing items
+                const trashZone = document.getElementById("trash-zone");
+                if (trashZone) {
+                    trashZone.addEventListener("dragover", (e) => {
+                        e.preventDefault();
+                        trashZone.classList.add("border-red-500", "bg-red-100");
+                        trashZone.classList.remove("border-gray-300", "bg-gray-50");
+                    });
+                    trashZone.addEventListener("dragleave", () => {
+                        trashZone.classList.remove("border-red-500", "bg-red-100");
+                        trashZone.classList.add("border-gray-300", "bg-gray-50");
+                    });
+                    trashZone.addEventListener("drop", async (e) => {
+                        e.preventDefault();
+                        trashZone.classList.remove("border-red-500", "bg-red-100");
+                        trashZone.classList.add("border-gray-300", "bg-gray-50");
+                        
+                        if (!e.dataTransfer) return;
+                        
+                        // Handle plant removal
+                        const plantId = e.dataTransfer.getData("plant-id");
+                        const source = e.dataTransfer.getData("source");
+                        
+                        if (plantId && source === "grid") {
+                            const sourceRow = parseInt(e.dataTransfer.getData("source-row") || "0");
+                            const sourceCol = parseInt(e.dataTransfer.getData("source-col") || "0");
+                            await updateSequencer(sourceRow, sourceCol, "");
+                        }
+                        
+                        // Handle effect removal
+                        const effectSource = e.dataTransfer.getData("effect-source");
+                        if (effectSource === "grid") {
+                            const srcRow = parseInt(e.dataTransfer.getData("effect-source-row") || "0");
+                            const srcCol = parseInt(e.dataTransfer.getData("effect-source-col") || "0");
+                            await updateEffect(srcRow, srcCol, "");
+                        }
+                    });
+                }
+
+                // Effect limits modal handlers
+                setupEffectLimitsModal();
+            }
+
+            // Effect limits state
+            let effectLimits = {
+                AC: { frequency: { min: 1, max: 1000 }, voltage: { min: 1, max: 240 }, phase: { min: 0, max: 360 } },
+                DC: { voltage: { min: 1, max: 48 }, current: { min: 0, max: 10 } },
+                AMF: { frequency: { min: 1, max: 1000 }, amplitude: { min: 0, max: 5 }, phase: { min: 0, max: 360 } },
+                CMF: { strength: { min: 0, max: 5 }, direction_options: ["vertical", "horizontal"], direction_default: "vertical" }
+            };
+
+            async function loadEffectLimits() {
+                try {
+                    const res = await fetch(`${API_BASE}/effect-limits`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        effectLimits = data.limits || effectLimits;
+                    }
+                } catch (e) {
+                    console.warn('Failed to load effect limits, using defaults', e);
+                }
+            }
+
+            function renderEffectLimitsForm() {
+                const content = document.getElementById('effect-limits-content');
+                if (!content) return;
+                const sections = [
+                    { key: 'AC', title: 'AC (Alternating Current)', fields: [ ['frequency','Hz'], ['voltage','V'], ['phase','°'] ] },
+                    { key: 'DC', title: 'DC (Direct Current)', fields: [ ['voltage','V'], ['current','A'] ] },
+                    { key: 'AMF', title: 'AMF (Alternating Magnetic Field)', fields: [ ['frequency','Hz'], ['amplitude','T'], ['phase','°'] ] },
+                    { key: 'CMF', title: 'CMF (Constant Magnetic Field)', fields: [ ['strength','T'] ] }
+                ];
+                content.innerHTML = sections.map(sec => {
+                    const limits = (effectLimits as any)[sec.key] || {};
+                    const rows = sec.fields.map(([name, unit]) => {
+                        const min = limits[name]?.min ?? '';
+                        const max = limits[name]?.max ?? '';
+                        return `
+                            <div class="grid grid-cols-2 gap-2 items-center">
+                                <label class="text-xs font-medium text-gray-700">${name} (${unit})</label>
+                                <div class="flex gap-2">
+                                    <input id="limit-${sec.key}-${name}-min" type="number" step="any" value="${min}" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" placeholder="min" />
+                                    <input id="limit-${sec.key}-${name}-max" type="number" step="any" value="${max}" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" placeholder="max" />
+                                </div>
+                            </div>`;
+                    }).join('');
+                    let dirRow = '';
+                    if (sec.key === 'CMF') {
+                        const opts = limits.direction_options || ["vertical","horizontal"];
+                        const def = limits.direction_default || 'vertical';
+                        dirRow = `
+                            <div class="grid grid-cols-2 gap-2 items-center">
+                                <label class="text-xs font-medium text-gray-700">direction</label>
+                                <select id="limit-CMF-direction-default" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                    ${opts.map((o: string) => `<option value="${o}" ${o===def?'selected':''}>${o}</option>`).join('')}
+                                </select>
+                            </div>`;
+                    }
+                    return `
+                        <div class="mb-4 p-3 border rounded">
+                            <div class="text-xs font-semibold text-gray-800 mb-2">${sec.title}</div>
+                            <div class="space-y-2">
+                                ${rows}
+                                ${dirRow}
+                            </div>
+                        </div>`;
+                }).join('');
+            }
+
+            async function saveEffectLimits() {
+                const out: any = { AC: {}, DC: {}, AMF: {}, CMF: {} };
+                function readPair(type: string, name: string) {
+                    const minEl = document.getElementById(`limit-${type}-${name}-min`) as HTMLInputElement;
+                    const maxEl = document.getElementById(`limit-${type}-${name}-max`) as HTMLInputElement;
+                    if (!minEl || !maxEl) return;
+                    let min = parseFloat(minEl.value);
+                    let max = parseFloat(maxEl.value);
+                    if (isNaN(min)) min = 0; if (isNaN(max)) max = min;
+                    if (min > max) max = min;
+                    out[type][name] = { min, max };
+                }
+                readPair('AC','frequency'); readPair('AC','voltage'); readPair('AC','phase');
+                readPair('DC','voltage'); readPair('DC','current');
+                readPair('AMF','frequency'); readPair('AMF','amplitude'); readPair('AMF','phase');
+                readPair('CMF','strength');
+                const dirSel = document.getElementById('limit-CMF-direction-default') as HTMLSelectElement;
+                if (dirSel) {
+                    out.CMF.direction_default = dirSel.value;
+                    out.CMF.direction_options = ["vertical","horizontal"];
+                }
+                try {
+                    const res = await fetch(`${API_BASE}/effect-limits`, {
+                        method: 'PUT', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ limits: out })
+                    });
+                    if (!res.ok) throw new Error(`Failed to save limits (status ${res.status})`);
+                    effectLimits = out;
+                    const modal = document.getElementById('effect-limits-modal');
+                    if (modal) {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    }
+                } catch (e: any) {
+                    alert(e?.message || 'Failed to save limits');
+                }
+            }
+
+            function setupEffectLimitsModal() {
+                const effectLimitsBtn = document.getElementById('effect-limits-btn');
+                const effectLimitsModal = document.getElementById('effect-limits-modal');
+                const closeEffectLimitsBtn = document.getElementById('close-effect-limits-btn');
+                const saveEffectLimitsBtn = document.getElementById('save-effect-limits-btn');
+
+                if (effectLimitsBtn && effectLimitsModal) {
+                    effectLimitsBtn.addEventListener('click', async () => {
+                        await loadEffectLimits();
+                        renderEffectLimitsForm();
+                        effectLimitsModal.classList.remove('hidden');
+                        effectLimitsModal.classList.add('flex');
+                    });
+                }
+                if (closeEffectLimitsBtn && effectLimitsModal) {
+                    closeEffectLimitsBtn.addEventListener('click', () => {
+                        effectLimitsModal.classList.add('hidden');
+                        effectLimitsModal.classList.remove('flex');
+                    });
+                    effectLimitsModal.addEventListener('click', (e) => {
+                        if (e.target === effectLimitsModal) {
+                            effectLimitsModal.classList.add('hidden');
+                            effectLimitsModal.classList.remove('flex');
+                        }
+                    });
+                }
+                if (saveEffectLimitsBtn) {
+                    saveEffectLimitsBtn.addEventListener('click', saveEffectLimits);
+                }
+            }
+
+            // Stub for robot overlay (not used but prevents errors)
+            function renderRobotsOnGrid() {}
+
+            // Initialize
+            async function initialize() {
+                try {
+                    await Promise.all([loadPlants(), loadSequencer(), loadEffects(), loadSimulationState()]);
+                    renderGrid();
+                    renderRobots();
+                    setupEventHandlers();
+
+                    if (simulationState.running) {
+                        startSimulationPolling();
+                    }
+                } catch (error) {
+                    console.error("Error during initialization:", error);
+                    renderGrid();
+                }
+            }
+
+            initialize();
+        </script>
+    </body>
+</html>
