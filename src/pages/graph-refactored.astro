@@ -1,0 +1,494 @@
+---
+/**
+ * Graph Page - Refactored Version
+ * Uses Chart.js for visualization with modular components
+ */
+import '../styles/global.css';
+import ChartCard from '../components/graph/ChartCard.astro';
+import StatsSidebar from '../components/graph/StatsSidebar.astro';
+---
+
+<html lang="en" class="h-full">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Plant Growth Analysis | EMP</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+    </head>
+    <body class="bg-slate-900 h-full overflow-hidden flex flex-col text-slate-100">
+        <!-- Header -->
+        <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-xl font-bold text-white">📊 Growth Analysis</h1>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="px-2 py-1 bg-slate-700 rounded-md">
+                            <span class="text-slate-400">Points:</span>
+                            <span id="data-point-count" class="text-emerald-400 font-mono font-bold">0</span>
+                        </span>
+                        <span id="last-update" class="text-slate-500 text-xs"></span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-slate-400">Auto-refresh:</span>
+                        <select id="refresh-rate" class="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="0">Off</option>
+                            <option value="2000">2s</option>
+                            <option value="5000" selected>5s</option>
+                            <option value="10000">10s</option>
+                        </select>
+                    </div>
+                    <button id="refresh-btn" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded transition-colors">
+                        ↻ Refresh
+                    </button>
+                    <a href="/sequencer" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded transition-colors">
+                        ← Sequencer
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto p-4">
+            <div class="grid grid-cols-12 gap-4 h-full" style="min-height: 800px;">
+                
+                <!-- Main Area: Parameter Response Curves -->
+                <div class="col-span-9 grid grid-cols-2 gap-4">
+                    <ChartCard 
+                        id="chart-ac"
+                        title="AC Effect"
+                        icon="⚡"
+                        colorClass="text-orange-400"
+                        paramSelectId="ac-param-select"
+                        paramOptions={[
+                            { value: "ac_frequency", label: "Frequency (Hz)" },
+                            { value: "ac_voltage", label: "Voltage (V)" },
+                            { value: "ac_phase", label: "Phase" }
+                        ]}
+                    />
+                    
+                    <ChartCard 
+                        id="chart-dc"
+                        title="DC Effect"
+                        icon="🔋"
+                        colorClass="text-red-400"
+                        paramSelectId="dc-param-select"
+                        paramOptions={[
+                            { value: "dc_voltage", label: "Voltage (V)" },
+                            { value: "dc_current", label: "Current (A)" }
+                        ]}
+                    />
+                    
+                    <ChartCard 
+                        id="chart-amf"
+                        title="AMF Effect"
+                        icon="🧲"
+                        colorClass="text-purple-400"
+                        paramSelectId="amf-param-select"
+                        paramOptions={[
+                            { value: "amf_frequency", label: "Frequency (Hz)" },
+                            { value: "amf_amplitude", label: "Amplitude" },
+                            { value: "amf_phase", label: "Phase" }
+                        ]}
+                    />
+                    
+                    <ChartCard 
+                        id="chart-cmf"
+                        title="CMF Effect"
+                        icon="🧭"
+                        colorClass="text-indigo-400"
+                        paramSelectId="cmf-param-select"
+                        paramOptions={[
+                            { value: "cmf_strength", label: "Strength" },
+                            { value: "cmf_direction", label: "Direction" }
+                        ]}
+                    />
+                </div>
+                
+                <!-- Statistics Sidebar -->
+                <StatsSidebar />
+            </div>
+        </main>
+
+        <script>
+            const API_BASE = "http://localhost:5000/api";
+            
+            // Chart instances
+            let charts: Record<string, any> = {};
+            let comparisonChart: any = null;
+            let refreshInterval: number | null = null;
+            
+            // Current parameter selections
+            let selectedParams = {
+                ac: 'ac_frequency',
+                dc: 'dc_voltage',
+                amf: 'amf_frequency',
+                cmf: 'cmf_strength'
+            };
+            
+            // Colors for each effect type
+            const COLORS = {
+                AC: { line: 'rgb(251, 146, 60)', fill: 'rgba(251, 146, 60, 0.2)' },
+                DC: { line: 'rgb(248, 113, 113)', fill: 'rgba(248, 113, 113, 0.2)' },
+                AMF: { line: 'rgb(192, 132, 252)', fill: 'rgba(192, 132, 252, 0.2)' },
+                CMF: { line: 'rgb(129, 140, 248)', fill: 'rgba(129, 140, 248, 0.2)' },
+                Control: { line: 'rgb(156, 163, 175)', fill: 'rgba(156, 163, 175, 0.2)' }
+            };
+
+            // Global data storage for SSE
+            let allData: any[] = [];
+            let eventSource: EventSource | null = null;
+            let isStreamConnected = false;
+
+            // Fetch initial growth data
+            async function fetchInitialData() {
+                try {
+                    const response = await fetch(`${API_BASE}/plant-growth/unified`);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const json = await response.json();
+                    return json.data_points || [];
+                } catch (error) {
+                    console.error("Error fetching growth data:", error);
+                    return [];
+                }
+            }
+            
+            // Setup SSE Stream
+            function setupStream() {
+                if (eventSource) eventSource.close();
+                
+                console.log("Connecting to SSE stream...");
+                eventSource = new EventSource(`${API_BASE}/plant-growth/stream`);
+                
+                eventSource.onopen = () => {
+                   console.log("SSE Connected");
+                   isStreamConnected = true;
+                   const statusBadge = document.getElementById('connection-status');
+                   if (statusBadge) {
+                       statusBadge.textContent = "Live";
+                       statusBadge.className = "px-2 py-1 bg-emerald-700 rounded-md text-emerald-100 text-xs";
+                   }
+                };
+
+                eventSource.onmessage = (event) => {
+                    if (event.data.includes("heartbeat")) return;
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.connected) return;
+                        
+                        // New data point(s)
+                        if (Array.isArray(data)) {
+                             allData.push(...data);
+                        } else {
+                             allData.push(data);
+                        }
+                        
+                        // Debounced update (optional, but good for high freq)
+                        requestAnimationFrame(() => updateAllCharts());
+                        
+                    } catch (e) {
+                        console.error("SSE Parse Error", e);
+                    }
+                };
+
+                eventSource.onerror = (err) => {
+                    console.error("SSE Error", err);
+                    isStreamConnected = false;
+                    const statusBadge = document.getElementById('connection-status');
+                    if (statusBadge) {
+                       statusBadge.textContent = "Reconnecting...";
+                       statusBadge.className = "px-2 py-1 bg-amber-700 rounded-md text-amber-100 text-xs";
+                    }
+                };
+            }
+
+            // Calculate statistics
+            function calculateStats(data: number[]) {
+                if (data.length === 0) return { mean: '-', std: '-', count: 0 };
+                const mean = data.reduce((a, b) => a + b, 0) / data.length;
+                const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
+                const std = Math.sqrt(variance);
+                return {
+                    mean: mean.toFixed(3),
+                    std: std.toFixed(3),
+                    count: data.length
+                };
+            }
+
+            // Group data by parameter value
+            function groupByParameter(data: any[], effectType: string, paramKey: string) {
+                const groups: Map<number, number[]> = new Map();
+                
+                data.filter(d => (d.effect_type || d.effectType) === effectType).forEach(d => {
+                    const paramValue = d[paramKey];
+                    if (paramValue !== undefined && paramValue !== null) {
+                        const pVal = typeof paramValue === 'number' ? parseFloat(paramValue.toFixed(2)) : paramValue;
+                        if (!groups.has(pVal)) {
+                            groups.set(pVal, []);
+                        }
+                        groups.get(pVal)!.push(d.growth);
+                    }
+                });
+                
+                // Calculate mean and std for each group
+                const result: { x: number; y: number; std: number; count: number }[] = [];
+                groups.forEach((growths, paramValue) => {
+                    const mean = growths.reduce((a, b) => a + b, 0) / growths.length;
+                    const variance = growths.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / growths.length;
+                    const std = Math.sqrt(variance);
+                    result.push({ x: paramValue, y: mean, std: std, count: growths.length });
+                });
+                
+                return result.sort((a, b) => a.x - b.x);
+            }
+
+            // Create or update chart with Std Dev Bands
+            function createChart(canvasId: string, effectType: string, paramKey: string, data: any[]) {
+                const ctx = document.getElementById(canvasId) as HTMLCanvasElement;
+                if (!ctx) return;
+
+                const groupedData = groupByParameter(data, effectType, paramKey);
+                const color = COLORS[effectType as keyof typeof COLORS] || COLORS.Control;
+
+                // Prepared datasets
+                // 1. Lower Band (Invisible line, fill boundary)
+                const lowerData = groupedData.map(d => ({ x: d.x, y: d.y - d.std }));
+                // 2. Upper Band (Fills to Lower Band)
+                const upperData = groupedData.map(d => ({ x: d.x, y: d.y + d.std }));
+                // 3. Mean Line
+                const meanData = groupedData.map(d => ({ x: d.x, y: d.y }));
+
+                if (charts[canvasId]) {
+                    charts[canvasId].data.datasets[0].data = lowerData;
+                    charts[canvasId].data.datasets[1].data = upperData;
+                    charts[canvasId].data.datasets[2].data = meanData;
+                    charts[canvasId].update('none'); // 'none' for smooth animation
+                    return;
+                }
+
+                charts[canvasId] = new (window as any).Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [
+                            {
+                                label: 'Lower Bound',
+                                data: lowerData,
+                                borderColor: 'transparent',
+                                backgroundColor: 'transparent',
+                                pointRadius: 0,
+                                fill: false,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Std Dev',
+                                data: upperData,
+                                borderColor: 'transparent',
+                                backgroundColor: color.fill, // Semitransparent fill
+                                pointRadius: 0,
+                                fill: '-1', // Fill to previous dataset (index 0)
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Mean Growth',
+                                data: meanData,
+                                borderColor: color.line,
+                                backgroundColor: color.file,
+                                fill: false,
+                                tension: 0.4,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false, // data streaming optimization
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: { display: true, text: paramKey.replace('_', ' ').toUpperCase(), color: '#94a3b8' },
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            },
+                            y: {
+                                title: { display: true, text: 'Growth', color: '#94a3b8' },
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context: any) => {
+                                        if (context.datasetIndex !== 2) return null;
+                                        const point = groupedData[context.dataIndex];
+                                        return [
+                                            `Mean: ${point.y.toFixed(3)}`,
+                                            `Std Dev: ±${point.std.toFixed(3)}`,
+                                            `Count: ${point.count}`
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Create comparison chart
+            function createComparisonChart(data: any[]) {
+                const ctx = document.getElementById('chart-comparison') as HTMLCanvasElement;
+                if (!ctx) return;
+
+                const effectTypes = ['AC', 'DC', 'AMF', 'CMF', 'Control'];
+                const means = effectTypes.map(type => {
+                    const typeData = data.filter(d => (d.effect_type || 'Control') === type);
+                    if (typeData.length === 0) return 0;
+                    return typeData.reduce((sum, d) => sum + d.growth, 0) / typeData.length;
+                });
+
+                if (comparisonChart) {
+                    comparisonChart.data.datasets[0].data = means;
+                    comparisonChart.update('none');
+                    return;
+                }
+
+                comparisonChart = new (window as any).Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: effectTypes,
+                        datasets: [{
+                            data: means,
+                            backgroundColor: [
+                                COLORS.AC.line,
+                                COLORS.DC.line,
+                                COLORS.AMF.line,
+                                COLORS.CMF.line,
+                                COLORS.Control.line
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+
+            // Update statistics display
+            function updateStats(data: any[]) {
+                const effectTypes = ['ac', 'dc', 'amf', 'cmf', 'control'];
+                
+                effectTypes.forEach(type => {
+                    const typeData = data.filter(d => 
+                        (d.effect_type || 'Control').toLowerCase() === type.toLowerCase()
+                    ).map(d => d.growth);
+                    
+                    const stats = calculateStats(typeData);
+                    
+                    const countEl = document.getElementById(`${type}-count`);
+                    const meanEl = document.getElementById(`${type}-mean`);
+                    const stdEl = document.getElementById(`${type}-std`);
+                    
+                    if (countEl) countEl.textContent = String(stats.count);
+                    if (meanEl) meanEl.textContent = stats.mean;
+                    if (stdEl) stdEl.textContent = stats.std;
+                });
+                
+                // Update total count
+                const totalEl = document.getElementById('data-point-count');
+                if (totalEl) totalEl.textContent = String(data.length);
+                
+                // Update last update time
+                const lastUpdateEl = document.getElementById('last-update');
+                if (lastUpdateEl) {
+                    lastUpdateEl.textContent = `Live Stream (${new Date().toLocaleTimeString()})`;
+                }
+            }
+
+            // Update all graphs with accumulated data
+            function updateAllCharts() {
+                // Update charts
+                createChart('chart-ac', 'AC', selectedParams.ac, allData);
+                createChart('chart-dc', 'DC', selectedParams.dc, allData);
+                createChart('chart-amf', 'AMF', selectedParams.amf, allData);
+                createChart('chart-cmf', 'CMF', selectedParams.cmf, allData);
+                createComparisonChart(allData);
+                
+                // Update stats
+                updateStats(allData);
+            }
+
+            // Setup event handlers
+            function setupEventHandlers() {
+                // Refresh button (forces re-fetch and reconnect)
+                document.getElementById('refresh-btn')?.addEventListener('click', () => {
+                   window.location.reload();
+                });
+                
+                // Hide refresh rate selector as it's not needed for SSE
+                const refreshSelect = document.getElementById('refresh-rate');
+                if (refreshSelect && refreshSelect.parentElement) {
+                     refreshSelect.parentElement.innerHTML = '<span id="connection-status" class="px-2 py-1 bg-slate-700 rounded-md text-slate-400 text-xs">Connecting...</span>';
+                }
+                
+                // Parameter selectors
+                document.getElementById('ac-param-select')?.addEventListener('change', (e) => {
+                    selectedParams.ac = (e.target as HTMLSelectElement).value;
+                    updateAllCharts();
+                });
+                
+                document.getElementById('dc-param-select')?.addEventListener('change', (e) => {
+                    selectedParams.dc = (e.target as HTMLSelectElement).value;
+                    updateAllCharts();
+                });
+                
+                document.getElementById('amf-param-select')?.addEventListener('change', (e) => {
+                    selectedParams.amf = (e.target as HTMLSelectElement).value;
+                    updateAllCharts();
+                });
+                
+                document.getElementById('cmf-param-select')?.addEventListener('change', (e) => {
+                    selectedParams.cmf = (e.target as HTMLSelectElement).value;
+                    updateAllCharts();
+                });
+            }
+
+            // Initialize
+            async function initialize() {
+                console.log("Initializing Chart.js graphs with SSE...");
+                setupEventHandlers();
+                
+                // Initial Load
+                allData = await fetchInitialData();
+                updateAllCharts();
+                
+                // Connect Stream
+                setupStream();
+            }
+
+            // Wait for Chart.js to load
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initialize);
+            } else {
+                initialize();
+            }
+        </script>
+    </body>
+</html>

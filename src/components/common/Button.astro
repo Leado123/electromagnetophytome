@@ -1,0 +1,34 @@
+---
+export interface Props {
+    id: string;
+    variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'purple' | 'indigo';
+    size?: 'sm' | 'md';
+    class?: string;
+}
+
+const { id, variant = 'primary', size = 'md', class: extraClass = '' } = Astro.props;
+
+const variants: Record<string, string> = {
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white',
+    secondary: 'bg-gray-600 hover:bg-gray-700 text-white',
+    success: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    danger: 'bg-red-600 hover:bg-red-700 text-white',
+    warning: 'bg-yellow-600 hover:bg-yellow-700 text-white',
+    purple: 'bg-purple-600 hover:bg-purple-700 text-white',
+    indigo: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+};
+
+const sizes: Record<string, string> = {
+    sm: 'px-2 py-1 text-xs',
+    md: 'px-3 py-1.5 text-sm',
+};
+
+const baseClass = 'font-medium rounded transition-colors flex items-center gap-1';
+---
+
+<button 
+    id={id} 
+    class:list={[baseClass, variants[variant], sizes[size], extraClass]}
+>
+    <slot />
+</button>

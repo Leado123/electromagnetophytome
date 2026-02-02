@@ -1,0 +1,15 @@
+---
+export interface Props {
+    title: string;
+    subtitle?: string;
+}
+
+const { title, subtitle } = Astro.props;
+---
+
+<header class="bg-white border-b border-gray-300 px-4 py-2 flex-shrink-0">
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-semibold text-gray-900">{title}</h1>
+        {subtitle && <p class="text-xs text-gray-600">{subtitle}</p>}
+    </div>
+</header>

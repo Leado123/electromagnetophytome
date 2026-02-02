@@ -1,0 +1,81 @@
+---
+import Button from '../common/Button.astro';
+import Icon from '../common/Icon.astro';
+---
+
+<div class="bg-white border-b border-gray-300 px-4 py-2 flex items-center justify-between flex-shrink-0">
+    <div class="flex items-center gap-4">
+        <!-- Playback Controls -->
+        <div class="flex items-center gap-2">
+            <Button id="simulation-start-btn" variant="success">
+                <Icon name="play" />
+                Start
+            </Button>
+            <Button id="simulation-pause-btn" variant="warning" class="hidden">
+                <Icon name="pause" />
+                Pause
+            </Button>
+            <Button id="simulation-reset-btn" variant="secondary">
+                <Icon name="reset" />
+                Reset
+            </Button>
+        </div>
+        
+        <div class="h-6 w-px bg-gray-300"></div>
+        
+        <!-- Speed Controls -->
+        <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600">Speed:</span>
+            <button id="speed-slower-btn" class="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors">−</button>
+            <input
+                id="speed-input"
+                type="number"
+                min="0.1"
+                max="1000"
+                step="0.1"
+                value="1.0"
+                class="text-sm font-mono font-semibold w-20 text-center border border-gray-300 rounded px-2 py-1"
+            />
+            <span class="text-sm text-gray-600">x</span>
+            <button id="speed-faster-btn" class="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors">+</button>
+        </div>
+        
+        <div class="border-l border-gray-300 h-6 mx-2"></div>
+        
+        <!-- Action Buttons -->
+        <Button id="effect-limits-btn" variant="indigo" title="Configure global EM effect limits">
+            <Icon name="plus" />
+            Effect Limits
+        </Button>
+        <Button id="auto-populate-btn" variant="success">
+            <Icon name="plus" />
+            Fill Plants
+        </Button>
+        <Button id="auto-set-em-btn" variant="purple">
+            <Icon name="bolt" />
+            Auto EM
+        </Button>
+        <a href="/graph" class="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors flex items-center gap-1 no-underline">
+            <Icon name="chart" />
+            Graph
+        </a>
+        
+        <div class="border-l border-gray-300 h-6 mx-2"></div>
+        
+        <Button id="clear-all-btn" variant="danger">
+            <Icon name="trash" />
+            Clear All
+        </Button>
+    </div>
+    
+    <!-- Status Display -->
+    <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600">Tick:</span>
+            <span id="tick-display" class="text-sm font-mono font-bold text-blue-600">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <span id="simulation-status" class="text-sm font-medium px-2 py-0.5 rounded bg-gray-200 text-gray-700">Stopped</span>
+        </div>
+    </div>
+</div>

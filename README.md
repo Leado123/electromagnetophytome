@@ -1,6 +1,58 @@
 # Electromagnetophytome
 
-A plant sequencer application with Flask backend and Astro frontend.
+A plant sequencer application for studying electromagnetic field effects on plant growth. Features a Flask backend with HDF5 data storage and an Astro frontend with real-time simulation visualization.
+
+## Project Structure
+
+```
+electromagnetophytome/
+├── src/                          # Frontend (Astro)
+│   ├── components/               # Reusable UI components
+│   │   ├── common/               # Shared components (Button, Icon, Header)
+│   │   ├── sequencer/            # Sequencer page components
+│   │   │   ├── SimulationControls.astro
+│   │   │   ├── ResourceSidebar.astro
+│   │   │   ├── SequencerGrid.astro
+│   │   │   └── StatusSidebar.astro
+│   │   └── graph/                # Graph page components
+│   │       ├── ChartCard.astro
+│   │       └── StatsSidebar.astro
+│   ├── lib/                      # Frontend utilities
+│   │   └── sequencer/            # Sequencer logic
+│   │       ├── config.ts         # Constants and configuration
+│   │       └── api.ts            # API client functions
+│   ├── pages/                    # Page routes
+│   │   ├── index.astro
+│   │   ├── sequencer.astro
+│   │   └── graph.astro
+│   └── styles/                   # Global styles
+│       └── global.css
+├── backend/                      # Backend (Flask + Jupyter)
+│   ├── server.ipynb              # Main server notebook
+│   ├── run_server.py             # Server entry point
+│   ├── lib/                      # Backend modules
+│   │   ├── data/                 # Data layer
+│   │   │   ├── init.ipynb        # HDF5 schema initialization
+│   │   │   └── h5_operations.ipynb # HDF5 CRUD operations
+│   │   ├── api/                  # API route modules
+│   │   │   ├── plants.ipynb      # Plant endpoints
+│   │   │   ├── effects.ipynb     # Effect endpoints
+│   │   │   └── simulation.ipynb  # Simulation endpoints
+│   │   └── simulation/           # Simulation engine
+│   │       └── engine.ipynb      # Core simulation logic
+│   └── pyproject.toml            # Python dependencies
+├── data/                         # HDF5 data storage
+│   └── data.h5                   # Main data file
+├── db/                           # Database utilities
+├── public/                       # Static assets
+└── scripts/                      # Build/dev scripts
+```
+
+## Key Technologies
+
+- **Frontend**: Astro 5.x, Tailwind CSS, Chart.js
+- **Backend**: Flask, HDF5 (h5py), Jupyter Notebooks
+- **Styling**: Tailwind CSS (utility-first, no loose CSS)
 
 ## Prerequisites
 
@@ -47,6 +99,7 @@ Build and run in production mode:
 ```bash
 # Using npm/bun scripts
 bun run build:all
+
 
 # Or directly
 ./scripts/build.sh
