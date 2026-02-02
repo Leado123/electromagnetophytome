@@ -1,0 +1,390 @@
+---
+import '../styles/global.css';
+---
+
+<html lang="en" class="h-full">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Plant Growth Graph</title>
+        <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+        <style>
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            .graph-container {
+                width: 50%;
+                height: 50%;
+                display: inline-block;
+                border: 1px solid #e5e7eb;
+            }
+            .toggle-btn {
+                padding: 4px 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 11px;
+                cursor: pointer;
+            }
+            .toggle-btn.on {
+                background: #10b981;
+                color: white;
+                border-color: #10b981;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-50 h-full overflow-hidden flex flex-col">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-300 px-4 py-2 flex-shrink-0">
+            <div class="flex items-center justify-between">
+                <h1 class="text-lg font-semibold text-gray-900">Plant Growth Analysis</h1>
+                <div class="flex items-center gap-4">
+                    <a href="/sequencer" class="text-sm text-blue-600 hover:text-blue-800">← Sequencer</a>
+                    <span class="text-sm text-gray-600">Data Points: <span id="data-point-count">0</span></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Controls -->
+        <div class="bg-gray-50 border-b border-gray-300 px-4 py-3 flex-shrink-0">
+            <div class="flex items-center gap-4 flex-wrap">
+                <!-- Display Options -->
+                <div class="flex items-center gap-2">
+                    <button id="toggle-trendline" class="toggle-btn on">Trend Line</button>
+                    <button id="toggle-stddev" class="toggle-btn on">Std Dev</button>
+                    <button id="toggle-points" class="toggle-btn on">Points</button>
+                </div>
+                
+                <!-- Refresh -->
+                <div class="flex items-center gap-2 border-l border-gray-300 pl-4">
+                    <span class="text-sm font-medium text-gray-700">Refresh:</span>
+                    <select id="refresh-rate" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="0" selected>Off</option>
+                        <option value="5000">5s</option>
+                        <option value="10000">10s</option>
+                        <option value="30000">30s</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Graph Container - 4 graphs in 2x2 grid -->
+        <main class="flex-1 overflow-auto">
+            <div class="flex flex-wrap" style="height: 100%;">
+                <div id="graph-ac" class="graph-container"></div>
+                <div id="graph-dc" class="graph-container"></div>
+                <div id="graph-amf" class="graph-container"></div>
+                <div id="graph-cmf" class="graph-container"></div>
+            </div>
+        </main>
+
+        <script is:inline>
+            const API_BASE = 'http://localhost:5000/api';
+            
+            let dataPoints = [];
+            let refreshInterval = null;
+            let refreshRate = 0; // Off by default
+            let lastDataHash = null; // Track data changes
+            
+            // Display options
+            let showTrendline = true;
+            let showStdDev = true;
+            let showPoints = true;
+            
+            // Store zoom state per graph
+            const zoomStates = {
+                'AC': null,
+                'DC': null,
+                'AMF': null,
+                'CMF': null
+            };
+            
+            const paramLabels = {
+                'ac_frequency': 'AC Frequency (Hz)',
+                'ac_voltage': 'AC Voltage (V)',
+                'ac_phase': 'AC Phase',
+                'dc_voltage': 'DC Voltage (V)',
+                'dc_current': 'DC Current (A)',
+                'amf_frequency': 'AMF Frequency (Hz)',
+                'amf_amplitude': 'AMF Amplitude',
+                'amf_phase': 'AMF Phase',
+                'cmf_strength': 'CMF Strength',
+                'cmf_direction': 'CMF Direction',
+                'tick': 'Tick',
+                'growth': 'Growth (Normalized)'
+            };
+            
+            const effectColors = {
+                'AC': '#f97316',
+                'DC': '#ef4444',
+                'AMF': '#a855f7',
+                'CMF': '#6366f1',
+                'Control': '#6b7280'
+            };
+            
+            // Effect-specific parameters
+            const effectParams = {
+                'AC': {
+                    x: 'ac_frequency',
+                    y: 'ac_voltage'
+                },
+                'DC': {
+                    x: 'dc_voltage',
+                    y: 'dc_current'
+                },
+                'AMF': {
+                    x: 'amf_frequency',
+                    y: 'amf_amplitude'
+                },
+                'CMF': {
+                    x: 'cmf_strength',
+                    y: 'cmf_direction'
+                }
+            };
+            
+            // Calculate mean and std dev for grouped data
+            function calcStats(values) {
+                if (!values.length) return { mean: 0, std: 0 };
+                const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+                return { mean, std: Math.sqrt(variance) };
+            }
+            
+            // Hash data to detect changes
+            function hashData(data) {
+                return JSON.stringify(data.map(p => ({ 
+                    tick: p.tick, 
+                    growth: Math.round(p.growth * 1000) / 1000,
+                    effect: p.effect_type 
+                })));
+            }
+            
+            async function fetchData() {
+                try {
+                    const response = await fetch(`${API_BASE}/plant-growth/unified`);
+                    if (!response.ok) return;
+                    const result = await response.json();
+                    
+                    if (result.data_points) {
+                        const newHash = hashData(result.data_points);
+                        
+                        // Only update if data actually changed
+                        if (newHash !== lastDataHash) {
+                            dataPoints = result.data_points;
+                            lastDataHash = newHash;
+                            document.getElementById('data-point-count').textContent = result.count;
+                            updateAllGraphs(true); // Preserve zoom
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching data:', error);
+                }
+            }
+            
+            function getFilteredData(effect) {
+                return dataPoints.filter(p => p.effect_type === effect);
+            }
+            
+            function updateAllGraphs(preserveZoom = false) {
+                ['AC', 'DC', 'AMF', 'CMF'].forEach(effect => {
+                    render3D(effect, preserveZoom);
+                });
+            }
+            
+            function render3D(effect, preserveZoom = false) {
+                const filtered = getFilteredData(effect);
+                const graphId = `graph-${effect.toLowerCase()}`;
+                const graphDiv = document.getElementById(graphId);
+                
+                if (!graphDiv) return;
+                
+                // Load saved zoom state
+                let currentZoom = null;
+                if (preserveZoom && zoomStates[effect]) {
+                    currentZoom = zoomStates[effect];
+                }
+                
+                if (filtered.length === 0) {
+                    // Show empty graph with message
+                    Plotly.react(graphId, [], {
+                        title: `${effect} Effect (No Data)`,
+                        scene: {
+                            xaxis: { title: '', range: [0, 1] },
+                            yaxis: { title: '', range: [0, 1] },
+                            zaxis: { title: '', range: [0, 1] }
+                        },
+                        annotations: [{
+                            text: `No data points found for ${effect} effect.<br>Run the simulation to collect data.`,
+                            xref: 'paper',
+                            yref: 'paper',
+                            x: 0.5,
+                            y: 0.5,
+                            showarrow: false,
+                            font: { size: 14, color: '#6b7280' },
+                            bgcolor: 'rgba(255, 255, 255, 0.8)',
+                            bordercolor: '#e5e7eb',
+                            borderwidth: 1
+                        }],
+                        margin: { t: 30, r: 0, b: 0, l: 0 },
+                        paper_bgcolor: '#f9fafb'
+                    }, { responsive: true });
+                    return;
+                }
+                
+                const params = effectParams[effect];
+                const xParam = params.x;
+                const yParam = params.y;
+                const color = effectColors[effect];
+                
+                // Group by (x, y) pairs and calculate mean/std for growth (z)
+                const grouped = {};
+                filtered.forEach(point => {
+                    const xVal = point[xParam] || 0;
+                    const yVal = point[yParam] || 0;
+                    const key = `${xVal}_${yVal}`;
+                    
+                    if (!grouped[key]) {
+                        grouped[key] = { x: xVal, y: yVal, growths: [] };
+                    }
+                    grouped[key].growths.push(point.growth);
+                });
+                
+                // Calculate stats for each group
+                const points = Object.values(grouped).map(g => {
+                    const stats = calcStats(g.growths);
+                    return {
+                        x: g.x,
+                        y: g.y,
+                        z: stats.mean,
+                        zerr: stats.std,
+                        n: g.growths.length
+                    };
+                });
+                
+                const trace = {
+                    x: points.map(p => p.x),
+                    y: points.map(p => p.y),
+                    z: points.map(p => p.z),
+                    mode: 'markers',
+                    type: 'scatter3d',
+                    name: effect,
+                    marker: {
+                        color: color,
+                        size: 6,
+                        opacity: 0.8,
+                        line: {
+                            color: 'rgba(0,0,0,0.3)',
+                            width: 1
+                        }
+                    },
+                    text: points.map(p => 
+                        `${paramLabels[xParam]}: ${p.x}<br>` +
+                        `${paramLabels[yParam]}: ${p.y}<br>` +
+                        `Growth: ${p.z.toFixed(3)}<br>` +
+                        `σ: ${p.zerr.toFixed(3)}<br>` +
+                        `n: ${p.n}`
+                    ),
+                    hovertemplate: '%{text}<extra></extra>'
+                };
+                
+                // Calculate auto-zoom ranges
+                const xVals = points.map(p => p.x);
+                const yVals = points.map(p => p.y);
+                const zVals = points.map(p => p.z);
+                
+                const xMin = Math.min(...xVals);
+                const xMax = Math.max(...xVals);
+                const yMin = Math.min(...yVals);
+                const yMax = Math.max(...yVals);
+                const zMin = Math.min(...zVals);
+                const zMax = Math.max(...zVals);
+                
+                const xPad = (xMax - xMin) * 0.1 || 1;
+                const yPad = (yMax - yMin) * 0.1 || 1;
+                const zPad = (zMax - zMin) * 0.15 || 0.1;
+                
+                const layout = {
+                    title: `${effect} Effect`,
+                    scene: {
+                        xaxis: {
+                            title: paramLabels[xParam],
+                            range: preserveZoom && currentZoom?.xaxis?.range ? currentZoom.xaxis.range : [xMin - xPad, xMax + xPad]
+                        },
+                        yaxis: {
+                            title: paramLabels[yParam],
+                            range: preserveZoom && currentZoom?.yaxis?.range ? currentZoom.yaxis.range : [yMin - yPad, yMax + yPad]
+                        },
+                        zaxis: {
+                            title: 'Growth',
+                            range: preserveZoom && currentZoom?.zaxis?.range ? currentZoom.zaxis.range : [Math.max(0.4, zMin - zPad), zMax + zPad]
+                        },
+                        camera: {
+                            eye: { x: 1.5, y: 1.5, z: 1.2 }
+                        }
+                    },
+                    margin: { t: 30, r: 0, b: 0, l: 0 }
+                };
+                
+                Plotly.react(graphId, [trace], layout, { responsive: true }).then(() => {
+                    // Save zoom state after render
+                    const plotDiv = document.getElementById(graphId);
+                    if (plotDiv && plotDiv.layout && plotDiv.layout.scene) {
+                        zoomStates[effect] = {
+                            xaxis: plotDiv.layout.scene.xaxis ? { range: plotDiv.layout.scene.xaxis.range } : null,
+                            yaxis: plotDiv.layout.scene.yaxis ? { range: plotDiv.layout.scene.yaxis.range } : null,
+                            zaxis: plotDiv.layout.scene.zaxis ? { range: plotDiv.layout.scene.zaxis.range } : null
+                        };
+                    }
+                });
+                
+                // Listen for zoom changes
+                graphDiv.on('plotly_relayout', (eventData) => {
+                    if (eventData['scene.xaxis.range'] || eventData['scene.yaxis.range'] || eventData['scene.zaxis.range']) {
+                        const plotDiv = document.getElementById(graphId);
+                        if (plotDiv && plotDiv.layout && plotDiv.layout.scene) {
+                            zoomStates[effect] = {
+                                xaxis: plotDiv.layout.scene.xaxis ? { range: plotDiv.layout.scene.xaxis.range } : null,
+                                yaxis: plotDiv.layout.scene.yaxis ? { range: plotDiv.layout.scene.yaxis.range } : null,
+                                zaxis: plotDiv.layout.scene.zaxis ? { range: plotDiv.layout.scene.zaxis.range } : null
+                            };
+                        }
+                    }
+                });
+            }
+            
+            // Toggle buttons
+            function setupToggle(id, getter, setter) {
+                const btn = document.getElementById(id);
+                btn.addEventListener('click', () => {
+                    setter(!getter());
+                    btn.classList.toggle('on', getter());
+                    updateAllGraphs(true);
+                });
+            }
+            setupToggle('toggle-trendline', () => showTrendline, v => showTrendline = v);
+            setupToggle('toggle-stddev', () => showStdDev, v => showStdDev = v);
+            setupToggle('toggle-points', () => showPoints, v => showPoints = v);
+            
+            document.getElementById('refresh-rate').addEventListener('change', (e) => {
+                refreshRate = parseInt(e.target.value);
+                setupRefresh();
+            });
+            
+            function setupRefresh() {
+                if (refreshInterval) clearInterval(refreshInterval);
+                if (refreshRate > 0) {
+                    refreshInterval = setInterval(() => fetchData(), refreshRate);
+                }
+            }
+            
+            // Initialize - load data once and render all graphs
+            // Render empty graphs immediately so user sees something
+            updateAllGraphs(false);
+            
+            // Then fetch data
+            fetchData();
+            setupRefresh();
+        </script>
+    </body>
+</html>
