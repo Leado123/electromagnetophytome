@@ -55,9 +55,36 @@ import '../styles/global.css';
                     <div class="flex items-center gap-2">
                         <span class="text-sm text-gray-600">Speed:</span>
                         <button id="speed-slower-btn" class="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors">−</button>
-                        <span id="speed-display" class="text-sm font-mono font-semibold w-12 text-center">1.0x</span>
+                        <input id="speed-input" type="number" min="0.1" max="1000" step="0.1" value="1.0" class="text-sm font-mono font-semibold w-20 text-center border border-gray-300 rounded px-2 py-1" />
+                        <span class="text-sm text-gray-600">x</span>
                         <button id="speed-faster-btn" class="px-2 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300 transition-colors">+</button>
                     </div>
+                    <div class="border-l border-gray-300 h-6 mx-2"></div>
+                    <button id="auto-populate-btn" class="px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded hover:bg-emerald-700 transition-colors flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Fill Plants
+                    </button>
+                    <button id="auto-set-em-btn" class="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 transition-colors flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        Auto EM
+                    </button>
+                    <a href="/graph" class="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors flex items-center gap-1 no-underline">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Graph
+                    </a>
+                    <div class="border-l border-gray-300 h-6 mx-2"></div>
+                    <button id="clear-all-btn" class="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Clear All
+                    </button>
                 </div>
                 <div class="flex items-center gap-4">
                     <div class="flex items-center gap-2">
@@ -529,17 +556,18 @@ import '../styles/global.css';
                 
                 for (let row = 0; row < 2; row++) {
                     const rowDiv = document.createElement('div');
-                    rowDiv.className = 'flex items-start gap-3 mb-3 relative';
+                    rowDiv.className = 'flex items-start gap-3 mb-3';
                     
                     // Row label
                     const labelDiv = document.createElement('div');
-                    labelDiv.className = 'w-12 flex items-center justify-center text-sm font-semibold text-gray-600 pt-3';
+                    labelDiv.className = 'w-12 flex items-center justify-center text-sm font-semibold text-gray-600 pt-2';
                     labelDiv.textContent = `R${row + 1}`;
                     rowDiv.appendChild(labelDiv);
                     
                     // Grid cells for this row
                     const cellsDiv = document.createElement('div');
-                    cellsDiv.className = 'flex-1 grid grid-cols-12 gap-3 relative';
+                    cellsDiv.className = 'flex-1 grid grid-cols-12 gap-2';
+                    cellsDiv.id = `row-${row}-cells`;
                     
                     for (let col = 0; col < 12; col++) {
                         const plantId = sequencer[row]?.[col] || '';
@@ -548,10 +576,11 @@ import '../styles/global.css';
                         // Determine tile zone
                         const isStorageZone = storageCols.includes(col);
                         const isEMZone = emCols.includes(col);
+                        const isObservationArea = col === 11; // Observation station at last column (rightmost - physical limitation)
                         
                         // Create main tile container with zone-specific styling
                         const tileContainer = document.createElement('div');
-                        let tileClasses = 'relative border-2 rounded-lg';
+                        let tileClasses = 'relative border rounded-md overflow-hidden';
                         if (isStorageZone) {
                             tileClasses += ' bg-blue-50 border-blue-200';
                         } else if (isEMZone) {
@@ -560,7 +589,7 @@ import '../styles/global.css';
                             tileClasses += ' bg-white border-gray-200';
                         }
                         tileContainer.className = tileClasses;
-                        tileContainer.style.minHeight = '120px';
+                        tileContainer.style.minHeight = '100px';
                         tileContainer.dataset.row = String(row);
                         tileContainer.dataset.col = String(col);
                         
@@ -596,33 +625,41 @@ import '../styles/global.css';
                             tileContainer.appendChild(zoneBadge);
                         }
                         
+                        // Observation area indicator (at column 6, rightmost of storage)
+                        if (isObservationArea) {
+                            const obsIndicator = document.createElement('div');
+                            obsIndicator.className = 'absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-yellow-400 to-transparent border-t-2 border-yellow-500';
+                            obsIndicator.style.pointerEvents = 'none';
+                            obsIndicator.title = 'Observation Area';
+                            tileContainer.appendChild(obsIndicator);
+                            
+                            const obsLabel = document.createElement('div');
+                            obsLabel.className = 'absolute bottom-1 left-1/2 transform -translate-x-1/2 text-[8px] font-bold text-yellow-700 bg-yellow-200 px-1 py-0.5 rounded';
+                            obsLabel.style.pointerEvents = 'none';
+                            obsLabel.textContent = 'OBS';
+                            obsLabel.title = 'Observation Station';
+                            tileContainer.appendChild(obsLabel);
+                        }
+                        
                         // Container for subtiles
                         const subtilesContainer = document.createElement('div');
-                        subtilesContainer.className = 'flex h-full gap-0.5 p-0.5';
-                        subtilesContainer.style.paddingTop = '18px'; // Make room for column number
+                        subtilesContainer.className = 'flex h-full gap-1 p-1';
+                        subtilesContainer.style.paddingTop = '16px'; // Make room for column number
                         subtilesContainer.style.width = '100%';
                         subtilesContainer.style.boxSizing = 'border-box';
                         
                         // Plant subtile (left) - exactly 50% width
                         const plantSubtile = document.createElement('div');
-                        plantSubtile.className = 'border-2 rounded-lg p-0.5 flex items-center justify-center min-h-[80px]';
-                        plantSubtile.style.width = '50%';
-                        plantSubtile.style.flexShrink = '0';
-                        plantSubtile.style.flexGrow = '0';
-                        plantSubtile.style.overflow = 'hidden';
-                        plantSubtile.style.boxSizing = 'border-box';
+                        plantSubtile.className = 'border rounded-sm p-1 flex items-center justify-center flex-1';
+                        plantSubtile.style.minHeight = '70px';
                         plantSubtile.dataset.subtileType = 'plant';
                         plantSubtile.dataset.row = String(row);
                         plantSubtile.dataset.col = String(col);
                         
                         if (plantId) {
                             const plant = plants.find(p => p.id === plantId);
-                            plantSubtile.className = 'border-2 border-blue-400 rounded-lg p-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 shadow-sm cursor-move';
-                            plantSubtile.style.width = '50%';
-                            plantSubtile.style.flexShrink = '0';
-                            plantSubtile.style.flexGrow = '0';
-                            plantSubtile.style.minHeight = '60px';
-                            plantSubtile.style.maxHeight = '80px';
+                            plantSubtile.className = 'border border-green-400 rounded-sm p-1 flex items-center justify-center bg-green-50 hover:bg-green-100 cursor-move transition-colors';
+                            plantSubtile.style.minHeight = '70px';
                             plantSubtile.draggable = true;
                             plantSubtile.dataset.plantId = plantId;
                             plantSubtile.title = 'Drag to move or return to list';
@@ -671,28 +708,19 @@ import '../styles/global.css';
                                 currentDragType = null;
                             });
                         } else {
-                            plantSubtile.className = 'border-2 border-dashed border-gray-300 rounded-lg p-0.5 flex flex-col items-center justify-center min-h-[80px] bg-gray-50';
-                            plantSubtile.style.width = '50%';
-                            plantSubtile.style.flexShrink = '0';
-                            plantSubtile.style.flexGrow = '0';
-                            plantSubtile.style.overflow = 'hidden';
-                            plantSubtile.style.boxSizing = 'border-box';
+                            plantSubtile.className = 'border border-dashed border-gray-300 rounded-sm p-1 flex flex-col items-center justify-center bg-gray-50';
+                            plantSubtile.style.minHeight = '70px';
                             const emptyText = document.createElement('div');
-                            emptyText.className = 'text-[10px] text-gray-400 text-center';
-                            emptyText.textContent = 'Plant';
+                            emptyText.className = 'text-[9px] text-gray-400';
+                            emptyText.textContent = 'plant';
                             plantSubtile.appendChild(emptyText);
                         }
                         
                         // Effect subtile (right) - exactly 50% width
                         const effectSubtile = document.createElement('div');
-                        effectSubtile.className = 'border-2 rounded-lg p-1 flex flex-col items-start justify-start';
-                        effectSubtile.style.width = '50%';
-                        effectSubtile.style.flexShrink = '0';
-                        effectSubtile.style.flexGrow = '0';
-                        effectSubtile.style.minHeight = '60px';
-                        effectSubtile.style.maxHeight = '80px';
+                        effectSubtile.className = 'border rounded-sm p-1 flex flex-col items-start justify-start flex-1';
+                        effectSubtile.style.minHeight = '70px';
                         effectSubtile.style.overflow = 'hidden';
-                        effectSubtile.style.boxSizing = 'border-box';
                         effectSubtile.dataset.subtileType = 'effect';
                         effectSubtile.dataset.row = String(row);
                         effectSubtile.dataset.col = String(col);
@@ -707,12 +735,8 @@ import '../styles/global.css';
                             
                             const colors = effectColors[effect] || { borderColor: '#6b7280', bgColor: '#f9fafb', textColor: '#374151', labelColor: '#374151' };
                             
-                            effectSubtile.className = 'border-2 rounded-lg p-1 flex flex-col items-start justify-start cursor-move shadow-sm';
-                            effectSubtile.style.width = '50%';
-                            effectSubtile.style.flexShrink = '0';
-                            effectSubtile.style.flexGrow = '0';
-                            effectSubtile.style.minHeight = '60px';
-                            effectSubtile.style.maxHeight = '80px';
+                            effectSubtile.className = 'border rounded-sm p-1 flex flex-col items-start justify-start cursor-move';
+                            effectSubtile.style.minHeight = '70px';
                             effectSubtile.style.borderColor = colors.borderColor;
                             effectSubtile.style.backgroundColor = colors.bgColor;
                             effectSubtile.draggable = true;
@@ -805,15 +829,11 @@ import '../styles/global.css';
                                 showEffectProperties(row, col, effect);
                             });
                         } else {
-                            effectSubtile.className = 'border-2 border-dashed border-gray-300 rounded-lg p-1 flex flex-col items-center justify-center bg-gray-50';
-                            effectSubtile.style.width = '50%';
-                            effectSubtile.style.flexShrink = '0';
-                            effectSubtile.style.flexGrow = '0';
-                            effectSubtile.style.minHeight = '60px';
-                            effectSubtile.style.maxHeight = '80px';
+                            effectSubtile.className = 'border border-dashed border-gray-300 rounded-sm p-1 flex flex-col items-center justify-center bg-gray-50';
+                            effectSubtile.style.minHeight = '70px';
                             const emptyText = document.createElement('div');
-                            emptyText.className = 'text-[10px] text-gray-400 text-center';
-                            emptyText.textContent = 'Effect';
+                            emptyText.className = 'text-[9px] text-gray-400';
+                            emptyText.textContent = 'effect';
                             effectSubtile.appendChild(emptyText);
                         }
                         
@@ -1097,26 +1117,6 @@ import '../styles/global.css';
              */
             async function updateEffects(row, col, effect) {
                 try {
-                    // If placing an effect, first remove it from any other position
-                    if (effect) {
-                        for (let r = 0; r < 2; r++) {
-                            for (let c = 0; c < 12; c++) {
-                                if (effects[r]?.[c] === effect && !(r === row && c === col)) {
-                                    // Clear the old position
-                                    const clearResponse = await fetch(`${API_BASE}/effects`, {
-                                        method: 'PUT',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify({ row: r, col: c, effect: '' }),
-                                    });
-                                    const clearData = await clearResponse.json();
-                                    effects = clearData.effects;
-                                }
-                            }
-                        }
-                    }
-                    
                     // Get default properties for the effect
                     const schema = effectPropertySchemas[effect] || {};
                     const defaultProperties = {};
@@ -1133,12 +1133,16 @@ import '../styles/global.css';
                         body: JSON.stringify({ row, col, effect, properties: defaultProperties }),
                     });
                     
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
                     const data = await response.json();
                     effects = data.effects;
                     renderGrid(); // This will reload properties in subtiles
                 } catch (error) {
                     console.error('Error updating effects:', error);
-                    alert('Failed to update effects');
+                    alert('Failed to update effects: ' + error.message);
                 }
             }
 
@@ -1557,6 +1561,8 @@ import '../styles/global.css';
                 
                 if (tickDisplay) tickDisplay.textContent = simulationState.tick.toString();
                 if (speedDisplay) speedDisplay.textContent = `${simulationState.speed.toFixed(1)}x`;
+                const speedInput = document.getElementById('speed-input');
+                if (speedInput) speedInput.value = simulationState.speed.toFixed(1);
             }
             
             function renderRobots() {
@@ -1564,6 +1570,9 @@ import '../styles/global.css';
                 if (!container) return;
                 
                 container.innerHTML = '';
+                
+                // Also render robots visually on the grid
+                renderRobotsOnGrid();
                 
                 simulationState.robots.forEach(robot => {
                     const robotEl = document.createElement('div');
@@ -1609,6 +1618,8 @@ import '../styles/global.css';
                 });
             }
             
+            // Note: Robots are displayed only in the robot status panel above the grid, not overlaid on grid cells
+            
             // Setup simulation control buttons
             const simStartBtn = document.getElementById('simulation-start-btn');
             const simPauseBtn = document.getElementById('simulation-pause-btn');
@@ -1625,6 +1636,58 @@ import '../styles/global.css';
             if (simResetBtn) {
                 simResetBtn.addEventListener('click', resetSimulation);
             }
+            
+            // Clear all button
+            const clearAllBtn = document.getElementById('clear-all-btn');
+            if (clearAllBtn) {
+                clearAllBtn.addEventListener('click', async () => {
+                    if (!confirm('⚠️ WARNING: This will delete ALL data including:\n\n• All plants in sequencer\n• All EM effects\n• All growth data\n• Test queue\n• Simulation state\n\nThis cannot be undone! Are you sure?')) {
+                        return;
+                    }
+                    
+                    clearAllBtn.disabled = true;
+                    clearAllBtn.textContent = 'Clearing...';
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/clear-all`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            console.log('Clear all result:', result);
+                            
+                            // Reload everything
+                            await Promise.all([
+                                loadPlants(),
+                                loadSequencer(),
+                                loadEffects(),
+                                loadSimulationState()
+                            ]);
+                            renderGrid();
+                            renderRobots();
+                            
+                            alert('✅ All data cleared successfully!');
+                        } else {
+                            const error = await response.json();
+                            throw new Error(error.error || 'Failed to clear data');
+                        }
+                    } catch (error) {
+                        console.error('Error clearing all data:', error);
+                        alert('❌ Failed to clear data: ' + error.message);
+                    } finally {
+                        clearAllBtn.disabled = false;
+                        clearAllBtn.innerHTML = `
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Clear All
+                        `;
+                    }
+                });
+            }
+            
             if (speedSlowerBtn) {
                 speedSlowerBtn.addEventListener('click', () => {
                     const newSpeed = Math.max(0.1, simulationState.speed - 0.5);
@@ -1633,8 +1696,127 @@ import '../styles/global.css';
             }
             if (speedFasterBtn) {
                 speedFasterBtn.addEventListener('click', () => {
-                    const newSpeed = Math.min(10.0, simulationState.speed + 0.5);
+                    const newSpeed = Math.min(1000.0, simulationState.speed + 0.5);
                     setSimulationSpeed(newSpeed);
+                    if (speedInput) speedInput.value = newSpeed.toFixed(1);
+                });
+            }
+            
+            const speedInput = document.getElementById('speed-input');
+            if (speedInput) {
+                speedInput.addEventListener('change', () => {
+                    const newSpeed = Math.max(0.1, Math.min(1000.0, parseFloat(speedInput.value) || 1.0));
+                    setSimulationSpeed(newSpeed);
+                });
+                speedInput.addEventListener('blur', () => {
+                    // Only validate, don't change if user is typing
+                    const currentValue = parseFloat(speedInput.value);
+                    if (isNaN(currentValue) || currentValue < 0.1 || currentValue > 1000.0) {
+                        // Invalid value, restore from state
+                        speedInput.value = simulationState.speed.toFixed(1);
+                    } else {
+                        // Valid value, send to server
+                        setSimulationSpeed(currentValue);
+                    }
+                });
+                speedInput.addEventListener('keypress', (e) => {
+                    // Allow Enter key to submit
+                    if (e.key === 'Enter') {
+                        speedInput.blur();
+                    }
+                });
+            }
+            
+            // Auto-populate plants button
+            const autoPopulateBtn = document.getElementById('auto-populate-btn');
+            if (autoPopulateBtn) {
+                autoPopulateBtn.addEventListener('click', async () => {
+                    autoPopulateBtn.disabled = true;
+                    autoPopulateBtn.textContent = 'Filling...';
+                    
+                    try {
+                        // Check current grid state before populating
+                        const gridBefore = await fetch(`${API_BASE}/sequencer`).then(r => r.json());
+                        console.log('Grid before populate:', gridBefore);
+                        
+                        const response = await fetch(`${API_BASE}/sequencer/auto-populate`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            console.log(`Auto-populate result:`, result);
+                            console.log(`Created ${result.created_count} plants, found ${result.empty_slots_found} empty slots`);
+                            
+                            // Reload grid and refresh display
+                            await loadSequencer();
+                            await loadPlants();
+                            renderGrid();
+                            
+                            if (result.created_count === 0 && result.empty_slots_found > 0) {
+                                alert(`No plants created despite ${result.empty_slots_found} empty slots found. Check console for errors.`);
+                            } else if (result.created_count > 0) {
+                                console.log(`Successfully created ${result.created_count} plants`);
+                            }
+                        } else {
+                            const errText = await response.text();
+                            let err;
+                            try {
+                                err = JSON.parse(errText);
+                            } catch {
+                                err = { error: errText };
+                            }
+                            console.error('Auto-populate error:', err);
+                            alert('Failed to auto-populate: ' + (err.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Error auto-populating:', error);
+                        alert('Failed to auto-populate plants: ' + error.message);
+                    } finally {
+                        autoPopulateBtn.disabled = false;
+                        autoPopulateBtn.innerHTML = `
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            Fill Plants
+                        `;
+                    }
+                });
+            }
+            
+            // Auto-set EM effects button
+            const autoSetEmBtn = document.getElementById('auto-set-em-btn');
+            if (autoSetEmBtn) {
+                autoSetEmBtn.addEventListener('click', async () => {
+                    autoSetEmBtn.disabled = true;
+                    autoSetEmBtn.textContent = 'Setting...';
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/em-effects/auto-set`, {
+                            method: 'POST'
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            await loadEffects();
+                            renderGrid();
+                            alert(`Auto-set ${data.count} EM effect(s)`);
+                        } else {
+                            alert(`Failed to auto-set EM effects: ${data.error}`);
+                        }
+                    } catch (error) {
+                        console.error('Error auto-setting EM effects:', error);
+                        alert('Failed to auto-set EM effects');
+                    } finally {
+                        autoSetEmBtn.disabled = false;
+                        autoSetEmBtn.innerHTML = `
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            Auto EM
+                        `;
+                    }
                 });
             }
             
@@ -1650,6 +1832,12 @@ import '../styles/global.css';
                     // Render grid after all data is loaded
                     renderGrid();
                     renderRobots();
+                    renderRobotsOnGrid();
+                    
+                    // If simulation is running, start polling to auto-reload
+                    if (simulationState.running) {
+                        startSimulationPolling();
+                    }
                 } catch (error) {
                     console.error('Error during initialization:', error);
                     // Still render grid even if there's an error
